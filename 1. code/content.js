@@ -272,6 +272,7 @@ function createChatbot() {
       #chatbot-send:hover {
         background: #0056b3 !important;
       }
+
     `;
     document.head.appendChild(style);
   }
@@ -1008,6 +1009,7 @@ function clearChatHistory() {
 /**
  * 메시지 추가
  */
+
 
 
 function addMessage(text, sender, messageId = null) {
