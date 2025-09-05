@@ -36,185 +36,200 @@ if (document.readyState === 'loading') {
   loadConsentScript();
 }
 
-// 챗봇 UI 상태
-let chatbotVisible = false;
+let awsChatbot = null;
 
 /**
- * 챗봇 표시/숨기기 토글
+ * 챗봇 토글 (CloudTrail 방식)
  */
 function toggleChatbot() {
-  let chatbot = document.getElementById('aws-security-chatbot');
+  if (awsChatbot) {
+    hideChatbot();
+    return;
+  }
+  showChatbot();
+}
+
+/**
+ * 챗봇 표시
+ */
+function showChatbot() {
+  if (!awsChatbot) {
+    createChatbot();
+  }
+}
+
+/**
+ * 챗봇 숨김
+ */
+function hideChatbot() {
+  if (awsChatbot) {
+    awsChatbot.remove();
+    awsChatbot = null;
+  }
+}
+
+/**
+ * 챗봇 생성
+ */
+function createChatbot() {
+  awsChatbot = document.createElement('div');
+  awsChatbot.id = 'aws-security-chatbot';
+  awsChatbot.innerHTML = `
+    <div class="chatbot-header">
+      <span>🛡️ AWS Security Assistant</span>
+      <div class="chatbot-controls">
+        <button class="chatbot-warning" title="CloudTrail 오류 확인">⚠️</button>
+        <button class="chatbot-clear" title="채팅 내역 지우기">🗑️</button>
+        <button class="chatbot-close">×</button>
+      </div>
+    </div>
+    <div class="chatbot-messages" id="chatbot-messages">
+      <div class="message bot-message">
+        👋 안녕하세요! AWS 보안 어시스턴트입니다.<br><br>
+        🔍 AWS Console 작업을 모니터링하고 있습니다.
+      </div>
+    </div>
+    <div class="chatbot-input">
+      <input type="text" placeholder="질문을 입력하세요..." id="chatbot-input">
+      <button id="chatbot-send">전송</button>
+    </div>
+  `;
   
-  if (!chatbot) {
-    // 챗봇이 없으면 생성
-    chatbot = document.createElement('div');
-    chatbot.id = 'aws-security-chatbot';
-    chatbot.innerHTML = `
-      <div class="chatbot-header" id="chatbot-header">
-        <span>🛡️ AWS Security Assistant</span>
-        <div class="chatbot-controls">
-          <button class="chatbot-warning" title="CloudTrail 오류 확인">⚠️</button>
-          <button class="chatbot-clear" title="채팅 내역 지우기">🗑️</button>
-          <button class="chatbot-close">×</button>
-        </div>
-      </div>
-      <div class="chatbot-messages" id="chatbot-messages">
-        <div class="message bot-message">
-          👋 안녕하세요! AWS 보안 어시스턴트입니다.<br><br>
-          🔍 AWS Console 작업을 모니터링하고 있습니다.
-        </div>
-      </div>
-      <div class="chatbot-input">
-        <input type="text" placeholder="질문을 입력하세요..." id="chatbot-input">
-        <button id="chatbot-send">전송</button>
-      </div>
+  awsChatbot.style.cssText = `
+    position: fixed !important;
+    bottom: 90px !important;
+    right: 20px !important;
+    width: 350px !important;
+    height: 400px !important;
+    background: white !important;
+    border: 1px solid #ddd !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+    z-index: 100000 !important;
+    font-family: Arial, sans-serif !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  `;
+  
+  if (!document.getElementById('chatbot-style')) {
+    const style = document.createElement('style');
+    style.id = 'chatbot-style';
+    style.textContent = `
+      .chatbot-header {
+        background: #232f3e !important;
+        color: white !important;
+        padding: 12px !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        cursor: move !important;
+      }
+      .chatbot-controls {
+        display: flex !important;
+        gap: 8px !important;
+      }
+      .chatbot-close, .chatbot-clear, .chatbot-warning {
+        background: none !important;
+        border: none !important;
+        color: white !important;
+        font-size: 18px !important;
+        cursor: pointer !important;
+        padding: 4px !important;
+        border-radius: 4px !important;
+      }
+      .chatbot-close:hover, .chatbot-clear:hover, .chatbot-warning:hover {
+        background: rgba(255,255,255,0.2) !important;
+      }
+      .chatbot-messages {
+        flex: 1 !important;
+        padding: 12px !important;
+        overflow-y: auto !important;
+      }
+      .message {
+        margin-bottom: 12px !important;
+        padding: 8px 12px !important;
+        border-radius: 12px !important;
+        max-width: 90% !important;
+        word-wrap: break-word !important;
+        white-space: pre-wrap !important;
+        font-size: 12px !important;
+      }
+      .bot-message {
+        background: #f0f0f0 !important;
+      }
+      .user-message {
+        background: #007dbc !important;
+        color: white !important;
+        margin-left: auto !important;
+      }
+      .chatbot-input {
+        display: flex !important;
+        padding: 12px !important;
+        border-top: 1px solid #eee !important;
+      }
+      #chatbot-input {
+        flex: 1 !important;
+        padding: 8px !important;
+        border: 1px solid #ddd !important;
+        border-radius: 4px !important;
+        margin-right: 8px !important;
+      }
+      #chatbot-send {
+        background: #007dbc !important;
+        color: white !important;
+        border: none !important;
+        padding: 8px 16px !important;
+        border-radius: 6px !important;
+        cursor: pointer !important;
+      }
+      #chatbot-send:hover {
+        background: #0056b3 !important;
+      }
     `;
-    
-    // 스타일 추가
-    if (!document.getElementById('chatbot-style')) {
-      const style = document.createElement('style');
-      style.id = 'chatbot-style';
-      style.textContent = `
-        #aws-security-chatbot {
-          position: fixed !important;
-          bottom: 90px !important;
-          right: 20px !important;
-          width: 350px !important;
-          height: 400px !important;
-          background: white !important;
-          border: 1px solid #ddd !important;
-          border-radius: 8px !important;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
-          z-index: 100000 !important;
-          font-family: Arial, sans-serif !important;
-          display: flex !important;
-          flex-direction: column !important;
-          overflow: hidden !important;
-        }
-        .chatbot-header {
-          background: #232f3e !important;
-          color: white !important;
-          padding: 12px !important;
-          display: flex !important;
-          justify-content: space-between !important;
-          align-items: center !important;
-          cursor: move !important;
-        }
-        .chatbot-controls {
-          display: flex !important;
-          gap: 8px !important;
-        }
-        .chatbot-close, .chatbot-clear, .chatbot-warning {
-          background: none !important;
-          border: none !important;
-          color: white !important;
-          font-size: 18px !important;
-          cursor: pointer !important;
-          padding: 4px !important;
-          border-radius: 4px !important;
-        }
-        .chatbot-close:hover, .chatbot-clear:hover, .chatbot-warning:hover {
-          background: rgba(255,255,255,0.2) !important;
-        }
-        .chatbot-messages {
-          flex: 1 !important;
-          padding: 12px !important;
-          overflow-y: auto !important;
-        }
-        .message {
-          margin-bottom: 12px !important;
-          padding: 8px 12px !important;
-          border-radius: 12px !important;
-          max-width: 90% !important;
-          word-wrap: break-word !important;
-          white-space: pre-wrap !important;
-          font-size: 12px !important;
-        }
-        .bot-message {
-          background: #f0f0f0 !important;
-        }
-        .user-message {
-          background: #007dbc !important;
-          color: white !important;
-          margin-left: auto !important;
-        }
-        .chatbot-input {
-          display: flex !important;
-          padding: 12px !important;
-          border-top: 1px solid #eee !important;
-        }
-        #chatbot-input {
-          flex: 1 !important;
-          padding: 8px !important;
-          border: 1px solid #ddd !important;
-          border-radius: 4px !important;
-          margin-right: 8px !important;
-        }
-        #chatbot-send {
-          background: #007dbc !important;
-          color: white !important;
-          border: none !important;
-          padding: 8px 16px !important;
-          border-radius: 6px !important;
-          cursor: pointer !important;
-        }
-        #chatbot-send:hover {
-          background: #0056b3 !important;
-        }
-      `;
-      document.head.appendChild(style);
+    document.head.appendChild(style);
+  }
+  
+  document.body.appendChild(awsChatbot);
+  
+  // 채팅 내역 복원
+  loadChatHistory();
+  
+  const closeBtn = awsChatbot.querySelector('.chatbot-close');
+  closeBtn.onclick = function(e) {
+    e.stopPropagation();
+    hideChatbot();
+  };
+  
+  const clearBtn = awsChatbot.querySelector('.chatbot-clear');
+  clearBtn.onclick = function(e) {
+    e.stopPropagation();
+    clearChatHistory();
+  };
+  
+  const sendBtn = awsChatbot.querySelector('#chatbot-send');
+  sendBtn.onclick = function() {
+    const input = awsChatbot.querySelector('#chatbot-input');
+    if (input.value.trim()) {
+      addMessage(input.value.trim(), 'user');
+      input.value = '';
     }
-    
-    document.body.appendChild(chatbot);
-    
-    // 이벤트 리스너 추가
-    chatbot.querySelector('.chatbot-close').onclick = (e) => {
-      e.stopPropagation();
-      chatbot.style.display = 'none';
-      chatbotVisible = false;
-    };
-    
-    chatbot.querySelector('.chatbot-clear').onclick = (e) => {
-      e.stopPropagation();
-      clearChatHistory();
-    };
-    
-    const warningBtn = chatbot.querySelector('.chatbot-warning');
-    
-    // 클릭 이벤트로 변경
-    warningBtn.onclick = (e) => {
-      e.stopPropagation();
-      toggleCloudTrailPopup();
-    };
-    
-    chatbot.querySelector('#chatbot-send').onclick = () => {
-      const input = chatbot.querySelector('#chatbot-input');
-      if (input.value.trim()) {
-        addMessage(input.value.trim(), 'user');
-        input.value = '';
-      }
-    };
-    
-    chatbot.querySelector('#chatbot-input').onkeypress = (e) => {
-      if (e.key === 'Enter') {
-        chatbot.querySelector('#chatbot-send').click();
-      }
-    };
-    
-    // 드래그 기능 추가
-    makeChatbotDraggable(chatbot);
-  }
+  };
   
-  // 토글 로직 - 현재 상태를 정확히 확인
-  const isCurrentlyVisible = chatbot.style.display === 'flex';
+  const inputField = awsChatbot.querySelector('#chatbot-input');
+  inputField.onkeypress = function(e) {
+    if (e.key === 'Enter') {
+      sendBtn.click();
+    }
+  };
   
-  if (isCurrentlyVisible) {
-    chatbot.style.display = 'none';
-    chatbotVisible = false;
-  } else {
-    chatbot.style.display = 'flex';
-    chatbotVisible = true;
-  }
+  const warningBtn = awsChatbot.querySelector('.chatbot-warning');
+  warningBtn.onclick = function(e) {
+    e.stopPropagation();
+    toggleCloudTrailPopup();
+  };
+  
+  makeChatbotDraggable(awsChatbot);
 }
 
 /**
@@ -428,8 +443,7 @@ function toggleCloudTrailPopup() {
  * CloudTrail 오류 팝업 표시
  */
 function showCloudTrailPopup() {
-  const chatbot = document.getElementById('aws-security-chatbot');
-  if (!chatbot) return;
+  if (!awsChatbot) return;
   
   // 팝업 생성
   cloudTrailPopup = document.createElement('div');
@@ -457,7 +471,7 @@ function showCloudTrailPopup() {
   `;
   
   // 채팅창 상단에 위치 설정
-  const chatbotRect = chatbot.getBoundingClientRect();
+  const chatbotRect = awsChatbot.getBoundingClientRect();
   cloudTrailPopup.style.left = chatbotRect.left + 'px';
   cloudTrailPopup.style.bottom = (window.innerHeight - chatbotRect.top + 10) + 'px';
   
@@ -644,13 +658,44 @@ function makePopupDraggable(popup) {
 
 // 전역 함수로 등록 (인라인 onclick에서 사용)
 window.hideCloudTrailPopup = hideCloudTrailPopup;
+window.hideChatbot = hideChatbot;
 
 /**
- * 채팅 내역 지우기
+ * 채팅 내역 저장
  */
-function clearChatHistory() {
+function saveChatHistory() {
   const messagesContainer = document.getElementById('chatbot-messages');
   if (messagesContainer) {
+    const messages = Array.from(messagesContainer.children).map(msg => ({
+      className: msg.className,
+      content: msg.innerHTML
+    }));
+    localStorage.setItem('aws-chat-history', JSON.stringify(messages));
+  }
+}
+
+/**
+ * 채팅 내역 복원
+ */
+function loadChatHistory() {
+  const messagesContainer = document.getElementById('chatbot-messages');
+  if (messagesContainer) {
+    const saved = localStorage.getItem('aws-chat-history');
+    if (saved) {
+      try {
+        const messages = JSON.parse(saved);
+        messagesContainer.innerHTML = '';
+        messages.forEach(msg => {
+          const div = document.createElement('div');
+          div.className = msg.className;
+          div.innerHTML = msg.content;
+          messagesContainer.appendChild(div);
+        });
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        return;
+      } catch (e) {}
+    }
+    // 기본 메시지
     messagesContainer.innerHTML = `
       <div class="message bot-message">
         👋 안녕하세요! AWS 보안 어시스턴트입니다.<br><br>
@@ -661,19 +706,24 @@ function clearChatHistory() {
 }
 
 /**
+ * 채팅 내역 지우기
+ */
+function clearChatHistory() {
+  localStorage.removeItem('aws-chat-history');
+  loadChatHistory();
+}
+
+/**
  * 메시지 추가
  */
 function addMessage(text, sender) {
-  let chatbot = document.getElementById('aws-security-chatbot');
-  if (!chatbot) {
-    toggleChatbot(); // 챗봇 생성
-    chatbot = document.getElementById('aws-security-chatbot');
+  if (!awsChatbot) {
+    createChatbot();
   }
   
-  const messagesContainer = chatbot.querySelector('#chatbot-messages');
+  const messagesContainer = awsChatbot.querySelector('#chatbot-messages');
   if (!messagesContainer) return;
   
-  // 사용자가 맨 아래에 있는지 확인 (오차범위 20px)
   const isAtBottom = messagesContainer.scrollTop + messagesContainer.clientHeight >= messagesContainer.scrollHeight - 20;
   
   const messageDiv = document.createElement('div');
@@ -682,23 +732,19 @@ function addMessage(text, sender) {
   
   messagesContainer.appendChild(messageDiv);
   
-  // 사용자가 맨 아래에 있었다면 자동 스크롤
   if (isAtBottom) {
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
   }
   
-  // 메시지가 추가되면 챗봇이 숨겨져 있을 때 자동으로 표시
-  if (chatbot.style.display === 'none') {
-    chatbot.style.display = 'flex';
-    chatbotVisible = true;
-  }
+  // 채팅 내역 저장
+  saveChatHistory();
 }
 
 /**
  * 보안 경고 표시
  */
 function showSecurityAlert(message) {
-  if (!chatbotVisible) showChatbot();
+  if (!awsChatbot) showChatbot();
   addMessage(`⚠️ 보안 알림: ${message}`, 'bot');
 }
 
@@ -709,7 +755,6 @@ const MAX_BUTTON_ATTEMPTS = 50;
  * 플로팅 버튼 생성
  */
 function createFloatingButton() {
-  // 기존 버튼 제거
   const existingButton = document.getElementById('aws-security-button');
   if (existingButton) {
     existingButton.remove();
@@ -723,44 +768,29 @@ function createFloatingButton() {
   const button = document.createElement('button');
   button.id = 'aws-security-button';
   button.textContent = '🛡️';
-  button.title = 'AWS Security Assistant - 클릭하여 열기/닫기';
+  button.title = 'AWS Security Assistant';
     
-    button.style.cssText = `
-      position: fixed !important;
-      bottom: 20px !important;
-      right: 20px !important;
-      width: 60px !important;
-      height: 60px !important;
-      border-radius: 50% !important;
-      background: #232f3e !important;
-      color: white !important;
-      border: none !important;
-      font-size: 24px !important;
-      cursor: pointer !important;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
-      z-index: 99999 !important;
-      transition: all 0.3s ease !important;
-      display: block !important;
-      opacity: 1 !important;
-      visibility: visible !important;
-    `;
+  button.style.cssText = `
+    position: fixed !important;
+    bottom: 20px !important;
+    right: 20px !important;
+    width: 60px !important;
+    height: 60px !important;
+    border-radius: 50% !important;
+    background: #232f3e !important;
+    color: white !important;
+    border: none !important;
+    font-size: 24px !important;
+    cursor: pointer !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+    z-index: 99999 !important;
+  `;
     
+  button.onclick = function() {
+    toggleChatbot();
+  };
     
-    
-    // 클릭 이벤트
-    button.addEventListener('click', toggleChatbot);
-    
-    button.addEventListener('mouseenter', () => {
-      button.style.transform = 'scale(1.1)';
-      button.style.background = '#1a252f';
-    });
-    
-    button.addEventListener('mouseleave', () => {
-      button.style.transform = 'scale(1)';
-      button.style.background = '#232f3e';
-    });
-    
-    document.body.appendChild(button);
+  document.body.appendChild(button);
 }
 
 /**
@@ -820,7 +850,7 @@ async function checkConsentAndInit() {
  */
 function initializeUI() {
   createFloatingButton();
-  setTimeout(createFloatingButton, 500);
+  showChatbot(); // 처음에 채팅창 표시
 }
 
 /**
@@ -862,8 +892,7 @@ function setupPageObserver() {
           currentUrl = window.location.href;
           console.log('페이지 변경 감지, UI 재생성:', currentUrl);
           
-          // 상태 초기화
-          chatbotVisible = false;
+          // UI 재생성
           
           // UI 재생성
           setTimeout(createFloatingButton, 1000);
@@ -926,8 +955,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     addMessage(request.message, request.sender);
     
     // 챗봇이 열려있지 않으면 자동으로 열기
-    if (!chatbotVisible) {
-      toggleChatbot();
+    if (!awsChatbot) {
+      showChatbot();
     }
     
     sendResponse({ success: true });

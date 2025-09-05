@@ -377,9 +377,6 @@ async function sendToServer(data, retryCount = 0) {
     return true;
     
   } catch (error) {
-    const errorMsg = `❌ sendToServer 오류: ${error.name} - ${error.message}`;
-    sendChatMessage('bot', errorMsg);
-
     Logger.error('서버 전송 실패', {
       error: error.message,
       url: CONFIG.EC2_URL,
