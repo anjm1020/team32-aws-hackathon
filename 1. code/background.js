@@ -163,11 +163,8 @@ class BatchProcessor {
   async flush() {
     try {
       if (this.batch.length === 0) {
-        sendChatMessage('bot', '📦 배치가 비어있음');
         return;
       }
-      
-      sendChatMessage('bot', `📦 배치 전송 시작: ${this.batch.length}개 요청`);
       
       const batchData = [...this.batch];
       this.batch = [];
@@ -185,7 +182,7 @@ class BatchProcessor {
       });
       
     } catch (error) {
-      sendChatMessage('bot', `❌ 배치 flush 오류: ${error.message}`);
+      // 에러 로깅만 유지
     }
   }
 }
@@ -333,10 +330,7 @@ function isDuplicateRequest(requestId) {
  */
 async function sendToServer(data, retryCount = 0) {
   try {
-    sendChatMessage('bot', `🔄 sendToServer 호출 - configLoaded: ${configLoaded}, EC2_URL: ${CONFIG.EC2_URL}`);
-    
     if (!CONFIG.EC2_URL) {
-      sendChatMessage('bot', '❌ 서버 URL이 설정되지 않았습니다.');
       Logger.error('서버 URL 미설정', { configLoaded, CONFIG });
       return false;
     }
@@ -346,7 +340,7 @@ async function sendToServer(data, retryCount = 0) {
     const jsonData = JSON.stringify(maskedData, null, 2);
     
     // 요청 JSON을 채팅창에 표시
-    sendChatMessage('user', `📤 EC2 서버로 전송:\n\n${jsonData}`);
+    sendChatMessage('user', `${jsonData}`);
     
     const response = await fetch(`${CONFIG.EC2_URL}/api/ask`, {
       method: 'POST',
@@ -356,8 +350,7 @@ async function sendToServer(data, retryCount = 0) {
       },
       body: jsonData
     });
-    
-    sendChatMessage('bot', `📝 응답 수신: ${response.status} ${response.statusText}`);
+
     
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -365,9 +358,12 @@ async function sendToServer(data, retryCount = 0) {
     
     const responseData = await response.text();
     
-    // 응답을 채팅창에 표시
+    // 응답을 채팅창에 표시 (특정 응답 제외)
     if (responseData && responseData.trim()) {
-      sendChatMessage('bot', `📥 서버 응답:\n\n${responseData}`);
+      const trimmedResponse = responseData.trim();
+      if (trimmedResponse !== 'read' && trimmedResponse !== 'READ 요청으로 판단되어 NO Response') {
+        sendChatMessage('bot', `📥 서버 응답:\n${responseData}`);
+      }
     } else {
       sendChatMessage('bot', '✅ 서버 응답 완료 (응답 데이터 없음)');
     }
@@ -383,11 +379,9 @@ async function sendToServer(data, retryCount = 0) {
   } catch (error) {
     const errorMsg = `❌ sendToServer 오류: ${error.name} - ${error.message}`;
     sendChatMessage('bot', errorMsg);
-    sendChatMessage('bot', `🔧 스택 트레이스: ${error.stack}`);
-    
-    Logger.error('서버 전송 실패', { 
-      error: error.message, 
-      stack: error.stack,
+
+    Logger.error('서버 전송 실패', {
+      error: error.message,
       url: CONFIG.EC2_URL,
       retryCount,
       dataType: data?.type
@@ -395,7 +389,6 @@ async function sendToServer(data, retryCount = 0) {
     
     // 재시도 로직
     if (retryCount < CONFIG.MAX_RETRY_COUNT) {
-      sendChatMessage('bot', `🔄 ${CONFIG.RETRY_DELAY_MS}ms 후 재시도 (${retryCount + 1}/${CONFIG.MAX_RETRY_COUNT})`);
       await new Promise(resolve => setTimeout(resolve, CONFIG.RETRY_DELAY_MS));
       return sendToServer(data, retryCount + 1);
     }
@@ -526,17 +519,13 @@ function extractAwsAction(url, headers) {
  */
 function handleAwsRequest(details) {
   try {
-    sendChatMessage('bot', `🔍 AWS 요청 감지: ${details.method} ${details.url}`);
-    
     // 설정 로드 상태 확인
     if (!configLoaded) {
-      sendChatMessage('bot', '⚠️ 설정이 아직 로드되지 않음 - 요청 무시');
       return;
     }
     
     const requestId = `${details.method}-${details.url}-${Date.now()}`;
     if (isDuplicateRequest(requestId)) {
-      sendChatMessage('bot', '⚠️ 중복 요청 무시');
       return;
     }
     
@@ -564,8 +553,6 @@ function handleAwsRequest(details) {
       action: action,
       requestBody: parsedBody
     };
-    
-    sendChatMessage('user', `🔍 AWS 요청 감지:\n\n${JSON.stringify(displayData, null, 2)}`);
     
     batchProcessor.add(requestData);
     
