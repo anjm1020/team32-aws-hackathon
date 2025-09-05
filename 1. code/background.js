@@ -7,11 +7,12 @@
 class Logger {
   static log(level, message, data = {}) {
     try {
+      const sanitizedData = this.sanitizeData(data);
       const logEntry = {
         timestamp: new Date().toISOString(),
         level,
         message,
-        data: this.sanitizeData(data),
+        data: sanitizedData,
         extension: 'aws-security-assistant',
         version: '1.0.0'
       };
@@ -20,7 +21,7 @@ class Logger {
       const logMethod = logMethods[level] || 'log';
       console[logMethod](
         `[${level.toUpperCase()}] ${message}`,
-        this.sanitizeData(data)
+        sanitizedData
       );
       
       // 에러는 서버로도 전송
@@ -182,7 +183,7 @@ class BatchProcessor {
       });
       
     } catch (error) {
-      // 에러 로깅만 유지
+      Logger.error('BatchProcessor flush 실패', { error: error.message, batchSize: batchData.length });
     }
   }
 }
@@ -339,14 +340,11 @@ async function sendToServer(data, retryCount = 0) {
     const maskedData = maskSensitiveData(data);
     const jsonData = JSON.stringify(maskedData, null, 2);
     
-    // 요청 JSON을 채팅창에 표시
-    sendChatMessage('user', `${jsonData}`);
-    
     let serverUrl = CONFIG.EC2_URL;
     if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
       serverUrl = 'http://' + serverUrl;
     }
-    
+
     const response = await fetch(`${serverUrl}/api/ask`, {
       method: 'POST',
       headers: {
@@ -361,20 +359,25 @@ async function sendToServer(data, retryCount = 0) {
       statusText: response.statusText,
       contentType: response.headers.get('content-type')
     });
-    
+
     // 204 No Content 처리
     if (response.status === 204) {
-      sendChatMessage('bot', '📥 서버 응답: READ 요청으로 판단 (204 No Content)');
+      // sendChatMessage('bot', '📥 서버 응답: READ 요청으로 판단 (204 No Content)');
       return true;
     }
-    
+
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     
+    console.log('A');
     // 모든 응답을 text로 받아서 처리
     const responseData = await response.text();
+
+    console.log('200 응답 데이터:', responseData);
+    console.log('sendChatMessage 호출 전');
     sendChatMessage('bot', `📥 서버 응답:\n${responseData}`);
+    console.log('sendChatMessage 호출 후');
 
     Logger.info('서버 전송 성공', { 
       dataSize: jsonData.length, 

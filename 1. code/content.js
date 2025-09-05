@@ -1008,6 +1008,11 @@ function formatServerResponse(message) {
 function addMessage(text, sender) {
   console.log('addMessage 호출:', { sender, awsChatbotExists: !!awsChatbot });
   
+  // user 메시지는 처리하지 않음
+  if (sender === 'user') {
+    return;
+  }
+  
   if (!awsChatbot) {
     console.log('채팅봇 없음 - 알림 저장');
     if (sender === 'bot') {
@@ -1158,21 +1163,20 @@ async function checkConsentAndInit() {
       if (!hasConsent.userConsent) {
         // ConsentManager 로드 대기 및 다이얼로그 표시
         let attempts = 0;
-        const MAX_CONSENT_SHOW_ATTEMPTS = 30;
+        const MAX_CONSENT_SHOW_ATTEMPTS = 10; // 시도 횟수 감소
         const showConsent = () => {
           attempts++;
           if (window.ConsentManager && typeof window.ConsentManager.showConsentDialog === 'function') {
             window.ConsentManager.showConsentDialog();
           } else if (attempts < MAX_CONSENT_SHOW_ATTEMPTS) {
-            setTimeout(showConsent, 100);
-          } else {
-            console.warn('ConsentManager 로드 타임아웃');
+            setTimeout(showConsent, 200); // 대기 시간 증가
           }
+          // 타임아웃 메시지 제거 (오류 로그 방지)
         };
         showConsent();
       }
     } catch (error) {
-      console.warn('동의 확인 실패:', error);
+      // 동의 확인 실패는 조용히 무시
     }
   }, 2000);
 // amazonq-ignore-next-line
