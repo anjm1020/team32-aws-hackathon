@@ -448,7 +448,6 @@ function openProfileWindow() {
           addMessage(`📥 서버 응답: ${response.data}`, 'bot');
         }
         loadProfileFromServer(textarea);
-        profileWindow.remove();
       } else {
         addMessage(`❌ 프로파일 전송 실패: ${response?.error || '알 수 없는 오류'}`, 'bot');
       }
