@@ -97,8 +97,8 @@ function createChatbot() {
     </div>
     <div class="chatbot-messages" id="chatbot-messages">
       <div class="message bot-message">
-        👋 안녕하세요! AWS 보안 어시스턴트입니다.<br>
-        🔍 AWS Console 작업을 모니터링하고 있습니다.<br>
+👋 안녕하세요! AWS 보안 어시스턴트입니다.<br>
+🔍 AWS Console 작업을 모니터링하고 있습니다.<br>
       </div>
     </div>
     <div class="chatbot-input">
@@ -214,11 +214,12 @@ function createChatbot() {
         padding: 8px 12px !important;
         border-radius: 12px !important;
         word-wrap: break-word !important;
-        white-space: pre-line !important;
+        white-space: pre-wrap !important;
         font-size: 12px !important;
         width: fit-content !important;
         display: inline-block !important;
         clear: both !important;
+        font-family: monospace !important;
       }
       .bot-message {
         background: #f0f0f0 !important;
@@ -567,7 +568,7 @@ function openProfileWindow() {
   style.textContent = `
     .profile-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.7); z-index: 99999;
+      background: rgba(0,0,0,0.7); z-index: 999999;
       display: flex; align-items: center; justify-content: center;
     }
     .profile-container {
@@ -955,19 +956,19 @@ function loadChatHistory() {
       } catch (e) {
         // 기본 메시지
         messagesContainer.innerHTML = `
-          <div class="message bot-message">
-            👋 안녕하세요! AWS 보안 어시스턴트입니다.<br>
-            🔍 AWS Console 작업을 모니터링하고 있습니다.
-          </div>
+<div class="message bot-message">
+👋 안녕하세요! AWS 보안 어시스턴트입니다.<br>
+🔍 AWS Console 작업을 모니터링하고 있습니다.
+</div>
         `;
       }
     } else {
       // 기본 메시지
       messagesContainer.innerHTML = `
-        <div class="message bot-message">
-          👋 안녕하세요! AWS 보안 어시스턴트입니다.<br>
-          🔍 AWS Console 작업을 모니터링하고 있습니다.
-        </div>
+<div class="message bot-message">
+👋 안녕하세요! AWS 보안 어시스턴트입니다.<br>
+🔍 AWS Console 작업을 모니터링하고 있습니다.
+</div>
       `;
     }
     
@@ -1038,6 +1039,8 @@ function addMessage(text, sender, messageId = null) {
     messageDiv.id = messageId;
   }
   
+  // 원본 텍스트 그대로 표시 (특별한 포맷팅 제거)
+  messageDiv.style.whiteSpace = 'pre-wrap';
   messageDiv.textContent = text;
   
   messagesContainer.appendChild(messageDiv);

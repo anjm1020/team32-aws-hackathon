@@ -233,6 +233,57 @@ async function loadConfig() {
 }
 
 /**
+ * 서버 응답 포맷 변경 및 순서 재배열
+ */
+function formatServerResponse(responseText) {
+  if (!responseText || typeof responseText !== 'string') {
+    return responseText;
+  }
+  
+  try {
+    // 각 섹션 추출 (단일 라인만 매칭)
+    const threatMatch = responseText.match(/(?:value|threat):\s*([^\n\r]+)/gi);
+    const summaryMatch = responseText.match(/summary:\s*([^\n\r]+)/gi);
+    const recommendMatch = responseText.match(/(?:recommand|recommend):\s*([^\n\r]+)/gi);
+    const titleMatch = responseText.match(/\[([^\]]+)\]/);
+    
+    if (!threatMatch && !summaryMatch && !recommendMatch) {
+      return responseText;
+    }
+    
+    let formatted = '';
+    
+    // 제목 추가
+    if (titleMatch) {
+      formatted += `${titleMatch[0]}\n\n`;
+    }
+    
+    // 1. Threat (맨 위)
+    if (threatMatch) {
+      const threat = threatMatch[0].replace(/(?:value|threat):/gi, 'Threat:');
+      formatted += `🚨 ${threat}\n\n`;
+    }
+    
+    // 2. Summary (중간)
+    if (summaryMatch) {
+      const summary = summaryMatch[0].replace(/summary:/gi, 'Summary:');
+      formatted += `📋 ${summary}\n\n`;
+    }
+    
+    // 3. Recommend (맨 아래)
+    if (recommendMatch) {
+      const recommend = recommendMatch[0].replace(/(?:recommand|recommend):/gi, 'Recommend:');
+      formatted += `💡 ${recommend}`;
+    }
+    
+    return formatted.trim();
+  } catch (error) {
+    Logger.error('응답 포맷 변경 실패', { error: error.message });
+    return responseText;
+  }
+}
+
+/**
  * 민감정보 마스킹
  */
 function maskSensitiveData(obj) {
@@ -375,9 +426,10 @@ async function sendToServer(data, retryCount = 0) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     
-    // 모든 응답을 text로 받아서 처리
+    // 모든 응답을 text로 받아서 포맷 변경 후 표시
     const responseData = await response.text();
-    sendChatMessage('bot', responseData);
+    const formattedResponse = formatServerResponse(responseData);
+    sendChatMessage('bot', formattedResponse);
 
     Logger.info('서버 전송 성공', { 
       dataSize: jsonData.length, 
@@ -751,8 +803,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           }
         );
         
+        // 응답 포맷 변경 후 표시
         if (data && data.trim()) {
-          sendChatMessage('bot', data);
+          const formattedData = formatServerResponse(data.trim());
+          sendChatMessage('bot', formattedData);
         }
         sendResponse({ success: true, data: data });
       })
