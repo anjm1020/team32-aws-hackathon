@@ -246,7 +246,7 @@ function createChatbot() {
   
   document.body.appendChild(awsChatbot);
   
-  // 채팅 내역 복원
+  // 채팅 내역 복원 (알림 포함)
   loadChatHistory();
   
   const closeBtn = awsChatbot.querySelector('.chatbot-close');
@@ -855,10 +855,10 @@ function updateNotificationBadge() {
 }
 
 function clearNotificationBadge() {
-  chrome.storage.local.remove(['aws-unread-notifications'], () => {
-    updateNotificationBadge();
-  });
+  updateNotificationBadge();
 }
+
+// loadUnreadNotifications 기능은 loadChatHistory에 통합됨
 
 // 전역 함수로 등록 (인라인 onclick에서 사용)
 window.hideCloudTrailPopup = hideCloudTrailPopup;
@@ -879,7 +879,7 @@ function saveChatHistory() {
 }
 
 /**
- * 채팅 내역 복원
+ * 채팅 내역 복원 (알림 포함)
  */
 function loadChatHistory() {
   const messagesContainer = document.getElementById('chatbot-messages');
@@ -895,17 +895,49 @@ function loadChatHistory() {
           div.innerHTML = msg.content;
           messagesContainer.appendChild(div);
         });
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        return;
-      } catch (e) {}
+      } catch (e) {
+        // 기본 메시지
+        messagesContainer.innerHTML = `
+          <div class="message bot-message">
+            👋 안녕하세요! AWS 보안 어시스턴트입니다.<br><br>
+            🔍 AWS Console 작업을 모니터링하고 있습니다.
+          </div>
+        `;
+      }
+    } else {
+      // 기본 메시지
+      messagesContainer.innerHTML = `
+        <div class="message bot-message">
+          👋 안녕하세요! AWS 보안 어시스턴트입니다.<br><br>
+          🔍 AWS Console 작업을 모니터링하고 있습니다.
+        </div>
+      `;
     }
-    // 기본 메시지
-    messagesContainer.innerHTML = `
-      <div class="message bot-message">
-        👋 안녕하세요! AWS 보안 어시스턴트입니다.<br><br>
-        🔍 AWS Console 작업을 모니터링하고 있습니다.
-      </div>
-    `;
+    
+    // 알림 로드 및 표시
+    chrome.storage.local.get(['aws-unread-notifications'], (result) => {
+      const unread = result['aws-unread-notifications'] || [];
+      
+      if (unread.length > 0) {
+        unread.forEach((notification) => {
+          const messageDiv = document.createElement('div');
+          messageDiv.className = 'message bot-message';
+          messageDiv.textContent = notification.message;
+          messagesContainer.appendChild(messageDiv);
+        });
+        
+        // 채팅 내역 저장
+        saveChatHistory();
+        
+        // 알림 삭제
+        chrome.storage.local.remove(['aws-unread-notifications'], () => {
+          updateNotificationBadge();
+        });
+      }
+      
+      // 스크롤 맨 아래로
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    });
   }
 }
 
@@ -920,22 +952,87 @@ function clearChatHistory() {
 /**
  * 메시지 추가
  */
+/**
+ * 서버 응답 형식인지 확인
+ */
+function isServerResponse(message) {
+  return message.includes('recommand:') && message.includes('summary:') && message.includes('value:');
+}
+
+/**
+ * 서버 응답 포맷팅
+ */
+function formatServerResponse(message) {
+  const lines = message.split('\n');
+  let title = '';
+  let value = '';
+  let summary = '';
+  let recommand = '';
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      title = trimmed.slice(1, -1);
+    } else if (trimmed.startsWith('value:')) {
+      value = trimmed.substring(6).trim();
+    } else if (trimmed.startsWith('summary:')) {
+      summary = trimmed.substring(8).trim();
+    } else if (trimmed.startsWith('recommand:')) {
+      recommand = trimmed.substring(10).trim();
+    }
+  }
+  
+  const responseId = 'response_' + Date.now();
+  
+  return `
+    <div class="aws-response-block">
+      <div class="response-header">
+        <span class="response-title">${title}</span>
+      </div>
+      <div class="response-content">
+        <div class="response-value">${value}</div>
+        <div class="response-summary">${summary}</div>
+      </div>
+      <div class="response-footer">
+        <button class="recommand-btn" onclick="window.toggleRecommand('${responseId}')">
+          권장사항
+        </button>
+      </div>
+      <div id="${responseId}" class="recommand-content" style="display: none;">
+        <div class="recommand-text">${recommand}</div>
+      </div>
+    </div>
+  `;
+}
+
 function addMessage(text, sender) {
+  console.log('addMessage 호출:', { sender, awsChatbotExists: !!awsChatbot });
+  
   if (!awsChatbot) {
+    console.log('채팅봇 없음 - 알림 저장');
     if (sender === 'bot') {
       saveUnreadNotification(text);
     }
     return;
   }
   
+  console.log('채팅봇에 메시지 추가');
   const messagesContainer = awsChatbot.querySelector('#chatbot-messages');
-  if (!messagesContainer) return;
+  if (!messagesContainer) {
+    console.log('메시지 컨테이너 없음');
+    return;
+  }
   
   const isAtBottom = messagesContainer.scrollTop + messagesContainer.clientHeight >= messagesContainer.scrollHeight - 20;
   
   const messageDiv = document.createElement('div');
   messageDiv.className = `message ${sender}-message`;
-  messageDiv.textContent = text;
+  
+  if (sender === 'bot' && isServerResponse(text)) {
+    messageDiv.innerHTML = formatServerResponse(text);
+  } else {
+    messageDiv.textContent = text;
+  }
   
   messagesContainer.appendChild(messageDiv);
   
@@ -945,6 +1042,7 @@ function addMessage(text, sender) {
   
   // 채팅 내역 저장
   saveChatHistory();
+  console.log('메시지 추가 완료');
 }
 
 /**
@@ -1022,7 +1120,6 @@ function createFloatingButton() {
   buttonContainer.appendChild(badge);
     
   button.onclick = function() {
-    clearNotificationBadge();
     toggleChatbot();
   };
     
@@ -1184,13 +1281,28 @@ initPageObserver();
 
 // 백그라운드에서 오는 메시지 리스너
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('메시지 수신:', request.action);
+  
   if (request.action === 'addChatMessage') {
     console.log('백그라운드에서 메시지 수신:', request.message.substring(0, 50));
     
-    // 메시지 추가 (챗봇이 없으면 자동 생성)
-    addMessage(request.message, request.sender);
-    
-    sendResponse({ success: true });
+    try {
+      // 채팅봇이 열려있는지 확인
+      if (!awsChatbot) {
+        console.log('채팅봇 닫혀있음 - 실패 응답');
+        sendResponse({ success: false, reason: 'chatbot_closed' });
+        return true;
+      }
+      
+      // 메시지 추가
+      addMessage(request.message, request.sender);
+      console.log('응답 전송: success');
+      sendResponse({ success: true });
+    } catch (error) {
+      console.error('메시지 처리 오류:', error);
+      sendResponse({ success: false, error: error.message });
+    }
+    return true;
   } else if (request.action === 'updateNotificationBadge') {
     // 백그라운드에서 배지 업데이트 요청
     const badge = document.getElementById('notification-badge');
@@ -1198,7 +1310,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       badge.textContent = request.count > 99 ? '99+' : request.count;
       badge.style.display = 'flex';
     }
+    sendResponse({ success: true });
+    return true;
   }
+  return false;
 });
 
 // 초기화

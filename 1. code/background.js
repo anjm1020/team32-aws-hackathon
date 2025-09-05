@@ -362,8 +362,9 @@ async function sendToServer(data, retryCount = 0) {
       contentType: response.headers.get('content-type')
     });
     
-    // 204 No Content 처리 - 아무것도 하지 않음
+    // 204 No Content 처리
     if (response.status === 204) {
+      sendChatMessage('bot', '📥 서버 응답: READ 요청으로 판단 (204 No Content)');
       return true;
     }
     
@@ -373,21 +374,8 @@ async function sendToServer(data, retryCount = 0) {
     
     // 모든 응답을 text로 받아서 처리
     const responseData = await response.text();
-    
-    if (responseData && responseData.trim()) {
-      // JSON 형식인지 확인
-      try {
-        const jsonData = JSON.parse(responseData);
-        const formattedJson = JSON.stringify(jsonData, null, 2);
-        sendChatMessage('bot', `📥 서버 JSON 응답:\n${formattedJson}`);
-      } catch (e) {
-        // JSON이 아니면 그대로 텍스트로 표시
-        sendChatMessage('bot', `📥 서버 응답:\n${responseData}`);
-      }
-    } else {
-      sendChatMessage('bot', '✅ 서버 응답 완룜 (응답 데이터 없음)');
-    }
-    
+    sendChatMessage('bot', `📥 서버 응답:\n${responseData}`);
+
     Logger.info('서버 전송 성공', { 
       dataSize: jsonData.length, 
       responseStatus: response.status,
@@ -439,15 +427,18 @@ function formatServerResponse(responseData) {
  * 채팅 메시지 전송
  */
 function sendChatMessage(sender, message) {
+  console.log('sendChatMessage 호출:', { sender, messageLength: message.length });
+  
   // 모든 AWS Console 탭에 메시지 전송
   chrome.tabs.query(
     { url: ['*://*.console.aws.amazon.com/*', '*://*.amazonaws.com/*'] },
     (tabs) => {
+      console.log('찾은 탭 수:', tabs.length);
       let messageDelivered = false;
       let completedTabs = 0;
       
       if (tabs.length === 0) {
-        // 탭이 없으면 바로 알림 저장
+        console.log('탭이 없음 - 알림 저장');
         if (sender === 'bot') {
           saveUnreadNotification(message);
         }
@@ -455,21 +446,25 @@ function sendChatMessage(sender, message) {
       }
       
       tabs.forEach(tab => {
+        console.log('탭에 메시지 전송 시도:', tab.id);
         chrome.tabs.sendMessage(tab.id, {
           action: 'addChatMessage',
           sender: sender,
           message: message,
           timestamp: new Date().toISOString()
         }).then((response) => {
+          console.log('메시지 전송 성공:', response);
           if (response && response.success) {
             messageDelivered = true;
           }
-        }).catch(() => {
-          // 메시지 전송 실패
+        }).catch((error) => {
+          console.log('메시지 전송 실패:', error);
         }).finally(() => {
           completedTabs++;
+          console.log(`완료된 탭: ${completedTabs}/${tabs.length}, 전송성공: ${messageDelivered}`);
           // 모든 탭 처리 완료 후 체크
           if (completedTabs === tabs.length && !messageDelivered && sender === 'bot') {
+            console.log('모든 탭 전송 실패 - 알림 저장');
             saveUnreadNotification(message);
           }
         });
@@ -482,23 +477,30 @@ function sendChatMessage(sender, message) {
  * 읽지 않은 알림 저장 (background에서)
  */
 function saveUnreadNotification(message) {
+  console.log('saveUnreadNotification 호출:', message.substring(0, 50));
   chrome.storage.local.get(['aws-unread-notifications'], (result) => {
     const unread = result['aws-unread-notifications'] || [];
+    console.log('기존 알림 수:', unread.length);
     unread.push({ message, timestamp: Date.now() });
-    chrome.storage.local.set({ 'aws-unread-notifications': unread });
+    console.log('새 알림 추가 후 수:', unread.length);
     
-    // 모든 탭에 배지 업데이트 요청
-    chrome.tabs.query(
-      { url: ['*://*.console.aws.amazon.com/*', '*://*.amazonaws.com/*'] },
-      (tabs) => {
-        tabs.forEach(tab => {
-          chrome.tabs.sendMessage(tab.id, {
-            action: 'updateNotificationBadge',
-            count: unread.length
-          }).catch(() => {});
-        });
-      }
-    );
+    chrome.storage.local.set({ 'aws-unread-notifications': unread }, () => {
+      console.log('알림 저장 완료');
+      
+      // 모든 탭에 배지 업데이트 요청
+      chrome.tabs.query(
+        { url: ['*://*.console.aws.amazon.com/*', '*://*.amazonaws.com/*'] },
+        (tabs) => {
+          console.log('배지 업데이트를 위한 탭 수:', tabs.length);
+          tabs.forEach(tab => {
+            chrome.tabs.sendMessage(tab.id, {
+              action: 'updateNotificationBadge',
+              count: unread.length
+            }).catch(() => {});
+          });
+        }
+      );
+    });
   });
 }
 
