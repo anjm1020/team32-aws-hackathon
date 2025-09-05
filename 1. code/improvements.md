@@ -96,7 +96,7 @@ class RequestQueue {
   <title>개인정보 처리방침</title>
 </head>
 <body>
-  <h1>AWS Security Assistant 개인정보 처리방침</h1>
+  <h1>AWS Cloud Pilot 개인정보 처리방침</h1>
   
   <h2>수집하는 정보</h2>
   <ul>
@@ -129,7 +129,7 @@ function showConsentDialog() {
     <div class="consent-overlay">
       <div class="consent-dialog">
         <h3>데이터 수집 동의</h3>
-        <p>AWS Security Assistant가 보안 분석을 위해 다음 정보를 수집합니다:</p>
+        <p>AWS Cloud Pilot이 보안 분석을 위해 다음 정보를 수집합니다:</p>
         <ul>
           <li>AWS Console API 요청 정보 (민감정보 제외)</li>
           <li>페이지 URL 및 사용 패턴</li>

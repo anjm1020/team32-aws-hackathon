@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "AWS Console Security Assistant",
+  "name": "AWS Cloud Pilot",
   "version": "1.0.0",
   "description": "AWS Console 사용 시 보안 조언을 제공하는 AI 어시스턴트",
   
@@ -44,7 +44,7 @@
   
   "action": {
     "default_popup": "popup.html",
-    "default_title": "AWS Security Assistant"
+    "default_title": "AWS Cloud Pilot"
   },
   
   "icons": {

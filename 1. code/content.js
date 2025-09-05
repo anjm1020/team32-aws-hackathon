@@ -1,5 +1,5 @@
 /**
- * AWS Console Security Assistant - Content Script
+ * AWS Cloud Pilot - Content Script
  * AWS Console 페이지에서 사용자 인터페이스 제공
  */
 
@@ -84,7 +84,7 @@ function createChatbot() {
     <div class="chatbot-resize-handle sw-resize"></div>
     <div class="chatbot-resize-handle w-resize"></div>
     <div class="chatbot-header">
-      <span>🛡️ AWS Security Assistant</span>
+      <span>🛡️ AWS Cloud Pilot</span>
       <div class="chatbot-controls">
         <label class="security-mode-toggle" title="security mode">
           <input type="checkbox" id="security-mode-checkbox">
@@ -194,7 +194,7 @@ function createChatbot() {
       .chatbot-resize-handle {
         position: absolute !important;
         background: transparent !important;
-        z-index: 1000 !important;
+        z-index: 700 !important;
       }
       .nw-resize { top: 0 !important; left: 0 !important; width: 15px !important; height: 15px !important; cursor: nw-resize !important; }
       .n-resize { top: 0 !important; left: 15px !important; right: 15px !important; height: 5px !important; cursor: n-resize !important; }
@@ -223,13 +223,13 @@ function createChatbot() {
       }
       .bot-message {
         background: #f0f0f0 !important;
-        max-width: 85% !important;
+        max-width: 70% !important;
         float: left !important;
       }
       .bot-message::after {
         content: '' !important;
         display: block !important;
-        height: 12px !important;
+        height: 11px !important;
       }
       .user-message {
         background: #007dbc !important;
@@ -1100,7 +1100,7 @@ function createFloatingButton() {
   const button = document.createElement('button');
   button.id = 'aws-security-button';
   button.textContent = '🛡️';
-  button.title = 'AWS Security Assistant';
+  button.title = 'AWS AWS Cloud Pilot';
     
   button.style.cssText = `
     width: 60px !important;

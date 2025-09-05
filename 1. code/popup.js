@@ -1,5 +1,5 @@
 /**
- * AWS Security Assistant - Popup Script
+ * AWS AWS Cloud Pilot - Popup Script
  * 확장 프로그램 설정 관리
  */
 

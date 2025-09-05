@@ -1,5 +1,5 @@
 /**
- * AWS Console Security Assistant - Background Service Worker
+ * AWS Cloud Pilot - Background Service Worker
  * AWS Console 트래픽을 모니터링하고 보안 분석을 위해 데이터를 전송
  */
 
@@ -241,14 +241,17 @@ function formatServerResponse(responseText) {
   }
   
   try {
+    // 첫 번째 '>' 문자 제거 및 마지막 개행 제거
+    let cleanedText = responseText.replace(/^>\s*/, '').trim();
+    
     // 각 섹션 추출 (단일 라인만 매칭)
-    const threatMatch = responseText.match(/(?:value|threat):\s*([^\n\r]+)/gi);
-    const summaryMatch = responseText.match(/summary:\s*([^\n\r]+)/gi);
-    const recommendMatch = responseText.match(/(?:recommand|recommend):\s*([^\n\r]+)/gi);
-    const titleMatch = responseText.match(/\[([^\]]+)\]/);
+    const threatMatch = cleanedText.match(/(?:value|threat):\s*([^\n\r]+)/gi);
+    const summaryMatch = cleanedText.match(/summary:\s*([^\n\r]+)/gi);
+    const recommendMatch = cleanedText.match(/(?:recommand|recommend):\s*([^\n\r]+)/gi);
+    const titleMatch = cleanedText.match(/\[([^\]]+)\]/);
     
     if (!threatMatch && !summaryMatch && !recommendMatch) {
-      return responseText;
+      return cleanedText;
     }
     
     let formatted = '';
@@ -279,7 +282,7 @@ function formatServerResponse(responseText) {
     return formatted.trim();
   } catch (error) {
     Logger.error('응답 포맷 변경 실패', { error: error.message });
-    return responseText;
+    return responseText.replace(/^>\s*/, '').trim();
   }
 }
 

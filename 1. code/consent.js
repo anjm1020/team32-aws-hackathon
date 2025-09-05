@@ -21,7 +21,7 @@ class ConsentManager {
         <div class="consent-overlay">
           <div class="consent-dialog">
             <h3>🛡️ 데이터 수집 동의</h3>
-            <p><strong>AWS Security Assistant</strong>가 보안 분석을 위해 다음 정보를 수집합니다:</p>
+            <p><strong>AWS Cloud Pilot</strong>이 보안 분석을 위해 다음 정보를 수집합니다:</p>
             <ul>
               <li>AWS Console API 요청 정보 (민감정보 자동 마스킹)</li>
               <li>페이지 URL 및 사용 패턴</li>
