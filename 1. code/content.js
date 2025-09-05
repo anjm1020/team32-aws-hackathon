@@ -1008,58 +1008,7 @@ function clearChatHistory() {
 /**
  * 메시지 추가
  */
-/**
- * 서버 응답 형식인지 확인
- */
-function isServerResponse(message) {
-  return message.includes('recommand:') && message.includes('summary:') && message.includes('value:');
-}
 
-/**
- * 서버 응답 포맷팅
- */
-function formatServerResponse(message) {
-  const lines = message.split('\n');
-  let title = '';
-  let value = '';
-  let summary = '';
-  let recommand = '';
-  
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-      title = trimmed.slice(1, -1);
-    } else if (trimmed.startsWith('value:')) {
-      value = trimmed.substring(6).trim();
-    } else if (trimmed.startsWith('summary:')) {
-      summary = trimmed.substring(8).trim();
-    } else if (trimmed.startsWith('recommand:')) {
-      recommand = trimmed.substring(10).trim();
-    }
-  }
-  
-  const responseId = 'response_' + Date.now();
-  
-  return `
-    <div class="aws-response-block">
-      <div class="response-header">
-        <span class="response-title">${title}</span>
-      </div>
-      <div class="response-content">
-        <div class="response-value">${value}</div>
-        <div class="response-summary">${summary}</div>
-      </div>
-      <div class="response-footer">
-        <button class="recommand-btn" onclick="window.toggleRecommand('${responseId}')">
-          권장사항
-        </button>
-      </div>
-      <div id="${responseId}" class="recommand-content" style="display: none;">
-        <div class="recommand-text">${recommand}</div>
-      </div>
-    </div>
-  `;
-}
 
 function addMessage(text, sender, messageId = null) {
   console.log('addMessage 호출:', { sender, awsChatbotExists: !!awsChatbot });
@@ -1087,11 +1036,7 @@ function addMessage(text, sender, messageId = null) {
     messageDiv.id = messageId;
   }
   
-  if (sender === 'bot' && isServerResponse(text)) {
-    messageDiv.innerHTML = formatServerResponse(text);
-  } else {
-    messageDiv.textContent = text;
-  }
+  messageDiv.textContent = text;
   
   messagesContainer.appendChild(messageDiv);
   

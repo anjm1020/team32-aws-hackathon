@@ -375,14 +375,9 @@ async function sendToServer(data, retryCount = 0) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     
-    console.log('A');
     // 모든 응답을 text로 받아서 처리
     const responseData = await response.text();
-
-    console.log('200 응답 데이터:', responseData);
-    console.log('sendChatMessage 호출 전');
-    sendChatMessage('bot', `📥 서버 응답:\n${responseData}`);
-    console.log('sendChatMessage 호출 후');
+    sendChatMessage('bot', responseData);
 
     Logger.info('서버 전송 성공', { 
       dataSize: jsonData.length, 
@@ -408,27 +403,6 @@ async function sendToServer(data, retryCount = 0) {
     
     return false;
   }
-}
-
-/**
- * 요청 데이터 포맷팅
- */
-function formatRequestData(data) {
-  if (!data) return 'Empty data';
-  return `Type: ${data.type}\nSize: ${JSON.stringify(data).length} bytes`;
-}
-
-/**
- * 서버 응답 포맷팅
- */
-function formatServerResponse(responseData) {
-  if (!responseData) return '✅ 서버 응답을 받았습니다.';
-  
-  if (typeof responseData === 'string') {
-    return `📝 서버 응답:\n\n${responseData}`;
-  }
-  
-  return `📝 서버 응답:\n\n${JSON.stringify(responseData, null, 2)}`;
 }
 
 /**
@@ -778,7 +752,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         );
         
         if (data && data.trim()) {
-          sendChatMessage('bot', `${data}`);
+          sendChatMessage('bot', data);
         }
         sendResponse({ success: true, data: data });
       })
