@@ -553,7 +553,7 @@ function openProfileWindow() {
   profileWindow.innerHTML = `
     <div class="profile-overlay">
       <div class="profile-container">
-        <h3>👤 프로파일 설정</h3>
+        <h3>👤 요구 사항</h3>
         <textarea id="profile-text" placeholder="프로파일을 입력하세요..." readonly></textarea>
         <div class="profile-buttons">
           <button id="profile-edit">Edit</button>
@@ -639,9 +639,8 @@ function openProfileWindow() {
       }
       
       if (response && response.success) {
-        addMessage('✅ 프로파일이 서버로 전송되었습니다!', 'bot');
         if (response.data && response.data.trim()) {
-          addMessage(`📥 서버 응답: ${response.data}`, 'bot');
+          addMessage(`${response.data}`, 'bot');
         }
         loadProfileFromServer(textarea);
       } else {
