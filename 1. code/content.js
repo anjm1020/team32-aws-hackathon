@@ -104,12 +104,23 @@ function createChatbot() {
     </div>
   `;
   
+  // 저장된 크기 복원
+  const savedSize = localStorage.getItem('aws-chatbot-size');
+  let width = 350, height = 400;
+  if (savedSize) {
+    try {
+      const size = JSON.parse(savedSize);
+      width = size.width || 350;
+      height = size.height || 400;
+    } catch (e) {}
+  }
+  
   awsChatbot.style.cssText = `
     position: fixed !important;
     bottom: 90px !important;
     right: 20px !important;
-    width: 350px !important;
-    height: 400px !important;
+    width: ${width}px !important;
+    height: ${height}px !important;
     background: white !important;
     border: 1px solid #ddd !important;
     border-radius: 8px !important;
@@ -387,6 +398,12 @@ function makeChatbotResizable(chatbot) {
     chatbot.style.height = newHeight + 'px';
     chatbot.style.left = newLeft + 'px';
     chatbot.style.top = newTop + 'px';
+    
+    // 크기 저장
+    localStorage.setItem('aws-chatbot-size', JSON.stringify({
+      width: newWidth,
+      height: newHeight
+    }));
   };
   
   const handleMouseUp = () => {

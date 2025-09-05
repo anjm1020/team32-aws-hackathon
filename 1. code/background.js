@@ -342,7 +342,12 @@ async function sendToServer(data, retryCount = 0) {
     // 요청 JSON을 채팅창에 표시
     sendChatMessage('user', `${jsonData}`);
     
-    const response = await fetch(`${CONFIG.EC2_URL}/api/ask`, {
+    let serverUrl = CONFIG.EC2_URL;
+    if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
+      serverUrl = 'http://' + serverUrl;
+    }
+    
+    const response = await fetch(`${serverUrl}/api/ask`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -351,22 +356,42 @@ async function sendToServer(data, retryCount = 0) {
       body: jsonData
     });
 
+    Logger.info('서버 응답 상태', { 
+      status: response.status, 
+      statusText: response.statusText,
+      contentType: response.headers.get('content-type')
+    });
+    
+    // 204 No Content 처리
+    if (response.status === 204) {
+      sendChatMessage('bot', '📥 서버 응답: READ 요청으로 판단 (204 No Content)');
+      return true;
+    }
     
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     
-    const responseData = await response.text();
+    const contentType = response.headers.get('content-type');
+    let responseData;
     
-    // 응답을 채팅창에 표시 (특정 응답 제외)
-    if (responseData && responseData.trim()) {
-      const trimmedResponse = responseData.trim();
-      if (trimmedResponse !== 'read' && trimmedResponse !== 'READ 요청으로 판단되어 NO Response') {
-        sendChatMessage('bot', `📥 서버 응답:\n${responseData}`);
+    // Content-Type에 따른 응답 처리
+    if (contentType && contentType.includes('application/json')) {
+      try {
+        const jsonResponse = await response.json();
+        responseData = JSON.stringify(jsonResponse, null, 2);
+        sendChatMessage('bot', `📥 서버 JSON 응답:\n${responseData}`);
+      } catch (e) {
+        responseData = await response.text();
+        sendChatMessage('bot', `📥 서버 응답 (JSON 파싱 실패):\n${responseData}`);
       }
     } else {
-      sendChatMessage('bot', `📥 서버 응답:\n${responseData}`);
-      // sendChatMessage('bot', '✅ 서버 응답 완료 (응답 데이터 없음)');
+      responseData = await response.text();
+      if (responseData) {
+        sendChatMessage('bot', `📥 서버 응답:\n${responseData}`);
+      } else {
+        sendChatMessage('bot', '✅ 서버 응답 완료 (응답 데이터 없음)');
+      }
     }
     
     Logger.info('서버 전송 성공', { 
