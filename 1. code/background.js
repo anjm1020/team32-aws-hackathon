@@ -362,9 +362,8 @@ async function sendToServer(data, retryCount = 0) {
       contentType: response.headers.get('content-type')
     });
     
-    // 204 No Content 처리
+    // 204 No Content 처리 - 아무것도 하지 않음
     if (response.status === 204) {
-      sendChatMessage('bot', '📥 서버 응답: READ 요청으로 판단 (204 No Content)');
       return true;
     }
     
@@ -444,16 +443,63 @@ function sendChatMessage(sender, message) {
   chrome.tabs.query(
     { url: ['*://*.console.aws.amazon.com/*', '*://*.amazonaws.com/*'] },
     (tabs) => {
+      let messageDelivered = false;
+      let completedTabs = 0;
+      
+      if (tabs.length === 0) {
+        // 탭이 없으면 바로 알림 저장
+        if (sender === 'bot') {
+          saveUnreadNotification(message);
+        }
+        return;
+      }
+      
       tabs.forEach(tab => {
         chrome.tabs.sendMessage(tab.id, {
           action: 'addChatMessage',
           sender: sender,
           message: message,
           timestamp: new Date().toISOString()
-        }).catch(() => {}); // 에러 무시
+        }).then((response) => {
+          if (response && response.success) {
+            messageDelivered = true;
+          }
+        }).catch(() => {
+          // 메시지 전송 실패
+        }).finally(() => {
+          completedTabs++;
+          // 모든 탭 처리 완료 후 체크
+          if (completedTabs === tabs.length && !messageDelivered && sender === 'bot') {
+            saveUnreadNotification(message);
+          }
+        });
       });
     }
   );
+}
+
+/**
+ * 읽지 않은 알림 저장 (background에서)
+ */
+function saveUnreadNotification(message) {
+  chrome.storage.local.get(['aws-unread-notifications'], (result) => {
+    const unread = result['aws-unread-notifications'] || [];
+    unread.push({ message, timestamp: Date.now() });
+    chrome.storage.local.set({ 'aws-unread-notifications': unread });
+    
+    // 모든 탭에 배지 업데이트 요청
+    chrome.tabs.query(
+      { url: ['*://*.console.aws.amazon.com/*', '*://*.amazonaws.com/*'] },
+      (tabs) => {
+        tabs.forEach(tab => {
+          chrome.tabs.sendMessage(tab.id, {
+            action: 'updateNotificationBadge',
+            count: unread.length
+          }).catch(() => {});
+        });
+      }
+    );
+  });
 }
 
 /**

@@ -829,6 +829,37 @@ function makePopupDraggable(popup) {
   };
 }
 
+function saveUnreadNotification(message) {
+  chrome.storage.local.get(['aws-unread-notifications'], (result) => {
+    const unread = result['aws-unread-notifications'] || [];
+    unread.push({ message, timestamp: Date.now() });
+    chrome.storage.local.set({ 'aws-unread-notifications': unread }, () => {
+      updateNotificationBadge();
+    });
+  });
+}
+
+function updateNotificationBadge() {
+  const badge = document.getElementById('notification-badge');
+  if (!badge) return;
+  
+  chrome.storage.local.get(['aws-unread-notifications'], (result) => {
+    const unread = result['aws-unread-notifications'] || [];
+    if (unread.length > 0) {
+      badge.textContent = unread.length > 99 ? '99+' : unread.length;
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  });
+}
+
+function clearNotificationBadge() {
+  chrome.storage.local.remove(['aws-unread-notifications'], () => {
+    updateNotificationBadge();
+  });
+}
+
 // 전역 함수로 등록 (인라인 onclick에서 사용)
 window.hideCloudTrailPopup = hideCloudTrailPopup;
 window.hideChatbot = hideChatbot;
@@ -891,7 +922,10 @@ function clearChatHistory() {
  */
 function addMessage(text, sender) {
   if (!awsChatbot) {
-    return; // 채팅창이 없으면 메시지 추가하지 않음
+    if (sender === 'bot') {
+      saveUnreadNotification(text);
+    }
+    return;
   }
   
   const messagesContainer = awsChatbot.querySelector('#chatbot-messages');
@@ -928,7 +962,7 @@ const MAX_BUTTON_ATTEMPTS = 50;
  * 플로팅 버튼 생성
  */
 function createFloatingButton() {
-  const existingButton = document.getElementById('aws-security-button');
+  const existingButton = document.getElementById('aws-security-button-container');
   if (existingButton) {
     existingButton.remove();
   }
@@ -938,15 +972,21 @@ function createFloatingButton() {
     return;
   }
     
+  const buttonContainer = document.createElement('div');
+  buttonContainer.id = 'aws-security-button-container';
+  buttonContainer.style.cssText = `
+    position: fixed !important;
+    bottom: 20px !important;
+    right: 20px !important;
+    z-index: 99999 !important;
+  `;
+  
   const button = document.createElement('button');
   button.id = 'aws-security-button';
   button.textContent = '🛡️';
   button.title = 'AWS Security Assistant';
     
   button.style.cssText = `
-    position: fixed !important;
-    bottom: 20px !important;
-    right: 20px !important;
     width: 60px !important;
     height: 60px !important;
     border-radius: 50% !important;
@@ -956,14 +996,38 @@ function createFloatingButton() {
     font-size: 24px !important;
     cursor: pointer !important;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
-    z-index: 99999 !important;
+    position: relative !important;
   `;
+  
+  const badge = document.createElement('div');
+  badge.id = 'notification-badge';
+  badge.style.cssText = `
+    position: absolute !important;
+    top: -5px !important;
+    right: -5px !important;
+    background: #ffc107 !important;
+    color: #000 !important;
+    border-radius: 50% !important;
+    width: 20px !important;
+    height: 20px !important;
+    font-size: 10px !important;
+    font-weight: bold !important;
+    display: none !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: 2px solid white !important;
+  `;
+  
+  buttonContainer.appendChild(button);
+  buttonContainer.appendChild(badge);
     
   button.onclick = function() {
+    clearNotificationBadge();
     toggleChatbot();
   };
     
-  document.body.appendChild(button);
+  document.body.appendChild(buttonContainer);
+  updateNotificationBadge();
 }
 
 /**
@@ -1126,9 +1190,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // 메시지 추가 (챗봇이 없으면 자동 생성)
     addMessage(request.message, request.sender);
     
-    // 챗봇이 열려있을 때만 메시지 표시
-    
     sendResponse({ success: true });
+  } else if (request.action === 'updateNotificationBadge') {
+    // 백그라운드에서 배지 업데이트 요청
+    const badge = document.getElementById('notification-badge');
+    if (badge && request.count > 0) {
+      badge.textContent = request.count > 99 ? '99+' : request.count;
+      badge.style.display = 'flex';
+    }
   }
 });
 
