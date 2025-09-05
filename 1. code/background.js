@@ -718,6 +718,67 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       
       return true;
       
+    case 'fetchProfile':
+      if (!CONFIG.EC2_URL) {
+        sendResponse({ success: false, error: '서버 URL 미설정' });
+        return true;
+      }
+      
+      const profileCheckUrl = CONFIG.EC2_URL.replace('https://', 'http://') + '/profile-check';
+      
+      fetch(profileCheckUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return response.text();
+      })
+      .then(data => {
+        sendResponse({ success: true, data: data });
+      })
+      .catch(error => {
+        console.error('프로파일 로드 실패:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+      
+      return true;
+      
+    case 'sendProfile':
+      if (!CONFIG.EC2_URL) {
+        sendResponse({ success: false, error: '서버 URL 미설정' });
+        return true;
+      }
+      
+      const profileUrl = CONFIG.EC2_URL.replace('https://', 'http://') + '/profile';
+      
+      fetch(profileUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ profile: request.profile })
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.text();
+      })
+      .then(data => {
+        sendResponse({ success: true, data: data });
+      })
+      .catch(error => {
+        console.error('프로파일 전송 실패:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+      
+      return true;
+      
     default:
       return false;
   }

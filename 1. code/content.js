@@ -91,6 +91,7 @@ function createChatbot() {
     </div>
     <div class="chatbot-input">
       <input type="text" placeholder="질문을 입력하세요..." id="chatbot-input">
+      <button id="chatbot-profile">👤</button>
       <button id="chatbot-send">전송</button>
     </div>
   `;
@@ -175,6 +176,18 @@ function createChatbot() {
         border-radius: 4px !important;
         margin-right: 8px !important;
       }
+      #chatbot-profile {
+        background: #28a745 !important;
+        color: white !important;
+        border: none !important;
+        padding: 8px 12px !important;
+        border-radius: 6px !important;
+        cursor: pointer !important;
+        margin-right: 8px !important;
+      }
+      #chatbot-profile:hover {
+        background: #1e7e34 !important;
+      }
       #chatbot-send {
         background: #007dbc !important;
         color: white !important;
@@ -205,6 +218,11 @@ function createChatbot() {
   clearBtn.onclick = function(e) {
     e.stopPropagation();
     clearChatHistory();
+  };
+  
+  const profileBtn = awsChatbot.querySelector('#chatbot-profile');
+  profileBtn.onclick = function() {
+    openProfileWindow();
   };
   
   const sendBtn = awsChatbot.querySelector('#chatbot-send');
@@ -306,14 +324,21 @@ function makeChatbotDraggable(chatbot) {
  */
 function loadProfileFromServer(textarea) {
   chrome.runtime.sendMessage({
-    action: 'loadProfile'
+    action: 'fetchProfile'
   }, (response) => {
     if (chrome.runtime.lastError) {
       textarea.placeholder = '네트워크 오류';
-    } else if (response && response.success) {
-      textarea.value = response.profile || '';
+      return;
+    }
+    
+    if (response && response.success) {
+      if (response.data && response.data.trim()) {
+        textarea.value = response.data.trim();
+      } else {
+        textarea.placeholder = 'profile 입력';
+      }
     } else {
-      textarea.placeholder = response?.error || '프로파일 로드 실패';
+      textarea.placeholder = '네트워크 오류';
     }
   });
 }
@@ -322,6 +347,11 @@ function loadProfileFromServer(textarea) {
  * 프로파일 창 열기
  */
 function openProfileWindow() {
+  // 이미 열린 프로파일 창이 있으면 리턴
+  if (document.getElementById('profile-window')) {
+    return;
+  }
+  
   const profileWindow = document.createElement('div');
   profileWindow.id = 'profile-window';
   profileWindow.innerHTML = `
@@ -409,12 +439,18 @@ function openProfileWindow() {
     }, (response) => {
       if (chrome.runtime.lastError) {
         addMessage('❌ 전송 실패: ' + chrome.runtime.lastError.message, 'bot');
-      } else if (response && response.success) {
+        return;
+      }
+      
+      if (response && response.success) {
         addMessage('✅ 프로파일이 서버로 전송되었습니다!', 'bot');
+        if (response.data && response.data.trim()) {
+          addMessage(`📥 서버 응답: ${response.data}`, 'bot');
+        }
         loadProfileFromServer(textarea);
         profileWindow.remove();
       } else {
-        addMessage('❌ 프로파일 전송 실패', 'bot');
+        addMessage(`❌ 프로파일 전송 실패: ${response?.error || '알 수 없는 오류'}`, 'bot');
       }
     });
     
