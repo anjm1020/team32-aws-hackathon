@@ -112,7 +112,8 @@ let CONFIG = {
   ENABLE_LOCAL_BUFFER: false,
   MAX_RETRY_COUNT: 3,
   RETRY_DELAY_MS: 1000,
-  TEST_MODE: false // 테스트 모드 비활성화
+  TEST_MODE: false, // 테스트 모드 비활성화
+  SECURITY_MODE: false // 보안 모드 기본값 false
 };
 
 // 설정 로드 완료 플래그
@@ -344,8 +345,12 @@ async function sendToServer(data, retryCount = 0) {
     if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
       serverUrl = 'http://' + serverUrl;
     }
+    
+    // securityMode 파라미터 추가
+    const url = new URL(`${serverUrl}/api/ask`);
+    url.searchParams.set('securityMode', CONFIG.SECURITY_MODE.toString());
 
-    const response = await fetch(`${serverUrl}/api/ask`, {
+    const response = await fetch(url.toString(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -731,6 +736,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         ec2Url: CONFIG.EC2_URL,
         enableBuffer: CONFIG.ENABLE_LOCAL_BUFFER
       });
+      sendResponse({ success: true });
+      return true;
+      
+    case 'setSecurityMode':
+      CONFIG.SECURITY_MODE = request.securityMode;
+      console.log('보안 모드 변경:', CONFIG.SECURITY_MODE);
       sendResponse({ success: true });
       return true;
       

@@ -86,6 +86,10 @@ function createChatbot() {
     <div class="chatbot-header">
       <span>🛡️ AWS Security Assistant</span>
       <div class="chatbot-controls">
+        <label class="security-mode-toggle" title="security mode">
+          <input type="checkbox" id="security-mode-checkbox">
+          <span class="security-mode-label">security mode</span>
+        </label>
         <button class="chatbot-warning" title="CloudTrail 오류 확인">⚠️</button>
         <button class="chatbot-clear" title="채팅 내역 지우기">🗑️</button>
         <button class="chatbot-close">×</button>
@@ -157,6 +161,23 @@ function createChatbot() {
       .chatbot-controls {
         display: flex !important;
         gap: 8px !important;
+      }
+      .security-mode-toggle {
+        display: flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+        font-size: 12px !important;
+        color: white !important;
+        cursor: pointer !important;
+      }
+      #security-mode-checkbox {
+        width: 14px !important;
+        height: 14px !important;
+        cursor: pointer !important;
+      }
+      .security-mode-label {
+        font-size: 11px !important;
+        white-space: nowrap !important;
       }
       .chatbot-close, .chatbot-clear, .chatbot-warning {
         background: none !important;
@@ -286,6 +307,16 @@ function createChatbot() {
   warningBtn.onclick = function(e) {
     e.stopPropagation();
     toggleCloudTrailPopup();
+  };
+  
+  const securityModeCheckbox = awsChatbot.querySelector('#security-mode-checkbox');
+  securityModeCheckbox.onchange = function() {
+    const isSecurityMode = this.checked;
+    chrome.runtime.sendMessage({
+      action: 'setSecurityMode',
+      securityMode: isSecurityMode
+    });
+    console.log('보안 모드 변경:', isSecurityMode);
   };
   
   makeChatbotDraggable(awsChatbot);
