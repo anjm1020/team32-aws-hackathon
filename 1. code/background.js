@@ -372,26 +372,21 @@ async function sendToServer(data, retryCount = 0) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     
-    const contentType = response.headers.get('content-type');
-    let responseData;
+    // 모든 응답을 text로 받아서 처리
+    const responseData = await response.text();
     
-    // Content-Type에 따른 응답 처리
-    if (contentType && contentType.includes('application/json')) {
+    if (responseData && responseData.trim()) {
+      // JSON 형식인지 확인
       try {
-        const jsonResponse = await response.json();
-        responseData = JSON.stringify(jsonResponse, null, 2);
-        sendChatMessage('bot', `📥 서버 JSON 응답:\n${responseData}`);
+        const jsonData = JSON.parse(responseData);
+        const formattedJson = JSON.stringify(jsonData, null, 2);
+        sendChatMessage('bot', `📥 서버 JSON 응답:\n${formattedJson}`);
       } catch (e) {
-        responseData = await response.text();
-        sendChatMessage('bot', `📥 서버 응답 (JSON 파싱 실패):\n${responseData}`);
+        // JSON이 아니면 그대로 텍스트로 표시
+        sendChatMessage('bot', `📥 서버 응답:\n${responseData}`);
       }
     } else {
-      responseData = await response.text();
-      if (responseData) {
-        sendChatMessage('bot', `📥 서버 응답:\n${responseData}`);
-      } else {
-        sendChatMessage('bot', '✅ 서버 응답 완료 (응답 데이터 없음)');
-      }
+      sendChatMessage('bot', '✅ 서버 응답 완룜 (응답 데이터 없음)');
     }
     
     Logger.info('서버 전송 성공', { 
@@ -544,6 +539,24 @@ function handleAwsRequest(details) {
   try {
     // 설정 로드 상태 확인
     if (!configLoaded) {
+      return;
+    }
+    
+    // 화이트리스트: 중요한 AWS API만 처리
+    const isImportantAwsApi = 
+      details.url.includes('ec2.') ||
+      details.url.includes('s3.') ||
+      details.url.includes('iam.') ||
+      details.url.includes('lambda.') ||
+      details.url.includes('rds.') ||
+      details.url.includes('cloudformation.') ||
+      details.url.includes('cloudwatch.') ||
+      details.url.includes('logs.') ||
+      details.url.includes('vpc.') ||
+      details.url.includes('elasticloadbalancing.') ||
+      (details.url.includes('amazonaws.com') && details.method === 'POST');
+    
+    if (!isImportantAwsApi) {
       return;
     }
     
