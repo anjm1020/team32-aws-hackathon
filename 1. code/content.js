@@ -52,7 +52,10 @@ function toggleChatbot() {
     chatbot.innerHTML = `
       <div class="chatbot-header" id="chatbot-header">
         <span>🛡️ AWS Security Assistant</span>
-        <button class="chatbot-close">×</button>
+        <div class="chatbot-controls">
+          <button class="chatbot-clear" title="채팅 내역 지우기">🗑️</button>
+          <button class="chatbot-close">×</button>
+        </div>
       </div>
       <div class="chatbot-messages" id="chatbot-messages">
         <div class="message bot-message">
@@ -96,15 +99,20 @@ function toggleChatbot() {
           align-items: center !important;
           cursor: move !important;
         }
-        .chatbot-close {
+        .chatbot-controls {
+          display: flex !important;
+          gap: 8px !important;
+        }
+        .chatbot-close, .chatbot-clear {
           background: none !important;
           border: none !important;
           color: white !important;
           font-size: 18px !important;
           cursor: pointer !important;
           padding: 4px !important;
+          border-radius: 4px !important;
         }
-        .chatbot-close:hover {
+        .chatbot-close:hover, .chatbot-clear:hover {
           background: rgba(255,255,255,0.2) !important;
         }
         .chatbot-messages {
@@ -159,9 +167,15 @@ function toggleChatbot() {
     document.body.appendChild(chatbot);
     
     // 이벤트 리스너 추가
-    chatbot.querySelector('.chatbot-close').onclick = () => {
+    chatbot.querySelector('.chatbot-close').onclick = (e) => {
+      e.stopPropagation();
       chatbot.style.display = 'none';
       chatbotVisible = false;
+    };
+    
+    chatbot.querySelector('.chatbot-clear').onclick = (e) => {
+      e.stopPropagation();
+      clearChatHistory();
     };
     
     chatbot.querySelector('#chatbot-send').onclick = () => {
@@ -182,8 +196,10 @@ function toggleChatbot() {
     makeChatbotDraggable(chatbot);
   }
   
-  // 토글 로직
-  if (chatbotVisible) {
+  // 토글 로직 - 현재 상태를 정확히 확인
+  const isCurrentlyVisible = chatbot.style.display === 'flex';
+  
+  if (isCurrentlyVisible) {
     chatbot.style.display = 'none';
     chatbotVisible = false;
   } else {
@@ -201,8 +217,8 @@ function makeChatbotDraggable(chatbot) {
   let startX, startY, startLeft, startTop;
   
   header.onmousedown = (e) => {
-    // 닫기 버튼 클릭 시 드래그 방지
-    if (e.target.classList.contains('chatbot-close')) return;
+    // 버튼 클릭 시 드래그 방지
+    if (e.target.classList.contains('chatbot-close') || e.target.classList.contains('chatbot-clear')) return;
     
     isDragging = true;
     startX = e.clientX;
@@ -379,6 +395,21 @@ function openProfileWindow() {
 }
 
 /**
+ * 채팅 내역 지우기
+ */
+function clearChatHistory() {
+  const messagesContainer = document.getElementById('chatbot-messages');
+  if (messagesContainer) {
+    messagesContainer.innerHTML = `
+      <div class="message bot-message">
+        👋 안녕하세요! AWS 보안 어시스턴트입니다.<br><br>
+        🔍 AWS Console 작업을 모니터링하고 있습니다.
+      </div>
+    `;
+  }
+}
+
+/**
  * 메시지 추가
  */
 function addMessage(text, sender) {
@@ -406,7 +437,7 @@ function addMessage(text, sender) {
   }
   
   // 메시지가 추가되면 챗봇이 숨겨져 있을 때 자동으로 표시
-  if (!chatbotVisible) {
+  if (chatbot.style.display === 'none') {
     chatbot.style.display = 'flex';
     chatbotVisible = true;
   }
