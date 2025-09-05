@@ -226,11 +226,6 @@ function createChatbot() {
         max-width: 70% !important;
         float: left !important;
       }
-      .bot-message::after {
-        content: '' !important;
-        display: block !important;
-        height: 11px !important;
-      }
       .user-message {
         background: #007dbc !important;
         color: white !important;
@@ -957,7 +952,7 @@ function loadChatHistory() {
         messagesContainer.innerHTML = `
 <div class="message bot-message">
 👋 안녕하세요! AWS 보안 어시스턴트입니다.<br>
-🔍 AWS Console 작업을 모니터링하고 있습니다.
+🔍 AWS Console 작업을 모니터링하고 있습니다.<br>
 </div>
         `;
       }
@@ -966,7 +961,7 @@ function loadChatHistory() {
       messagesContainer.innerHTML = `
 <div class="message bot-message">
 👋 안녕하세요! AWS 보안 어시스턴트입니다.<br>
-🔍 AWS Console 작업을 모니터링하고 있습니다.
+🔍 AWS Console 작업을 모니터링하고 있습니다.<br>
 </div>
       `;
     }
