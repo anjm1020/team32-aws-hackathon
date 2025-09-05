@@ -213,18 +213,24 @@ function createChatbot() {
         margin-bottom: 12px !important;
         padding: 8px 12px !important;
         border-radius: 12px !important;
-        max-width: 90% !important;
         word-wrap: break-word !important;
         white-space: pre-wrap !important;
         font-size: 12px !important;
+        width: fit-content !important;
+        display: inline-block !important;
+        clear: both !important;
       }
       .bot-message {
         background: #f0f0f0 !important;
+        max-width: 85% !important;
+        float: left !important;
       }
       .user-message {
         background: #007dbc !important;
         color: white !important;
-        margin-left: auto !important;
+        max-width: 70% !important;
+        font-size: 11px !important;
+        float: right !important;
       }
       .chatbot-input {
         display: flex !important;
@@ -290,8 +296,22 @@ function createChatbot() {
   const sendBtn = awsChatbot.querySelector('#chatbot-send');
   sendBtn.onclick = function() {
     const input = awsChatbot.querySelector('#chatbot-input');
-    if (input.value.trim()) {
-      addMessage(input.value.trim(), 'user');
+    const query = input.value.trim();
+    if (query) {
+      // 채팅창에 질문 표시
+      addMessage(query, 'user');
+      
+      // 로딩 메시지 표시
+      const loadingId = 'loading-' + Date.now();
+      addMessage('🤖 생각하는 중...', 'bot', loadingId);
+      
+      // /prompt로 POST 요청 전송
+      chrome.runtime.sendMessage({
+        action: 'sendPrompt',
+        query: query,
+        loadingId: loadingId
+      });
+      
       input.value = '';
     }
   };
@@ -1036,13 +1056,8 @@ function formatServerResponse(message) {
   `;
 }
 
-function addMessage(text, sender) {
+function addMessage(text, sender, messageId = null) {
   console.log('addMessage 호출:', { sender, awsChatbotExists: !!awsChatbot });
-  
-  // user 메시지는 처리하지 않음
-  if (sender === 'user') {
-    return;
-  }
   
   if (!awsChatbot) {
     console.log('채팅봇 없음 - 알림 저장');
@@ -1063,6 +1078,9 @@ function addMessage(text, sender) {
   
   const messageDiv = document.createElement('div');
   messageDiv.className = `message ${sender}-message`;
+  if (messageId) {
+    messageDiv.id = messageId;
+  }
   
   if (sender === 'bot' && isServerResponse(text)) {
     messageDiv.innerHTML = formatServerResponse(text);
@@ -1079,6 +1097,16 @@ function addMessage(text, sender) {
   // 채팅 내역 저장
   saveChatHistory();
   console.log('메시지 추가 완료');
+}
+
+// 로딩 메시지 제거 함수
+function removeLoadingMessage(loadingId) {
+  if (!awsChatbot) return;
+  const loadingElement = awsChatbot.querySelector(`#${loadingId}`);
+  if (loadingElement) {
+    loadingElement.remove();
+    saveChatHistory();
+  }
 }
 
 /**
@@ -1345,6 +1373,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       badge.textContent = request.count > 99 ? '99+' : request.count;
       badge.style.display = 'flex';
     }
+    sendResponse({ success: true });
+    return true;
+  } else if (request.action === 'removeLoadingMessage') {
+    // 로딩 메시지 제거
+    removeLoadingMessage(request.loadingId);
     sendResponse({ success: true });
     return true;
   }

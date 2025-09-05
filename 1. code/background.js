@@ -739,6 +739,70 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ success: true });
       return true;
       
+    case 'sendPrompt':
+      if (!CONFIG.EC2_URL) {
+        sendResponse({ success: false, error: '서버 URL 미설정' });
+        return true;
+      }
+      
+      let promptUrl = CONFIG.EC2_URL;
+      if (!promptUrl.startsWith('http://') && !promptUrl.startsWith('https://')) {
+        promptUrl = 'http://' + promptUrl;
+      }
+      
+      fetch(`${promptUrl}/prompt`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ query: request.query })
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.text();
+      })
+      .then(data => {
+        // 로딩 메시지 제거
+        chrome.tabs.query(
+          { url: ['*://*.console.aws.amazon.com/*', '*://*.amazonaws.com/*'] },
+          (tabs) => {
+            tabs.forEach(tab => {
+              chrome.tabs.sendMessage(tab.id, {
+                action: 'removeLoadingMessage',
+                loadingId: request.loadingId
+              }).catch(() => {});
+            });
+          }
+        );
+        
+        if (data && data.trim()) {
+          sendChatMessage('bot', `${data}`);
+        }
+        sendResponse({ success: true, data: data });
+      })
+      .catch(error => {
+        // 로딩 메시지 제거
+        chrome.tabs.query(
+          { url: ['*://*.console.aws.amazon.com/*', '*://*.amazonaws.com/*'] },
+          (tabs) => {
+            tabs.forEach(tab => {
+              chrome.tabs.sendMessage(tab.id, {
+                action: 'removeLoadingMessage',
+                loadingId: request.loadingId
+              }).catch(() => {});
+            });
+          }
+        );
+        
+        console.error('프롬프트 전송 실패:', error);
+        sendChatMessage('bot', `❌ 오류: ${error.message}`);
+        sendResponse({ success: false, error: error.message });
+      });
+      
+      return true;
+      
     case 'setSecurityMode':
       CONFIG.SECURITY_MODE = request.securityMode;
       console.log('보안 모드 변경:', CONFIG.SECURITY_MODE);
