@@ -697,6 +697,43 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ success: true, message: '테스트 전송 시작됨' });
       return true;
       
+    case 'fetchCloudTrailFailures':
+      console.log('CloudTrail API 요청 수신, CONFIG.EC2_URL:', CONFIG.EC2_URL);
+      
+      if (!CONFIG.EC2_URL) {
+        console.error('서버 URL 없음');
+        sendResponse({ success: false, error: '서버 URL이 설정되지 않음' });
+        return true;
+      }
+      
+      const apiUrl = `${CONFIG.EC2_URL}/cloudtrail/failures`;
+      console.log('CloudTrail API URL:', apiUrl);
+      
+      fetch(apiUrl, {
+        method: 'GET',
+        mode: 'cors',
+        headers: {
+          'Accept': 'application/json'
+        }
+      })
+      .then(response => {
+        console.log('CloudTrail API 응답 상태:', response.status, response.statusText);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('CloudTrail API 데이터:', data);
+        sendResponse({ success: true, data: data });
+      })
+      .catch(error => {
+        console.error('CloudTrail API 오류:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+      
+      return true;
+      
     default:
       return false;
   }

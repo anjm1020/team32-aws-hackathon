@@ -53,6 +53,7 @@ function toggleChatbot() {
       <div class="chatbot-header" id="chatbot-header">
         <span>🛡️ AWS Security Assistant</span>
         <div class="chatbot-controls">
+          <button class="chatbot-warning" title="CloudTrail 오류 확인">⚠️</button>
           <button class="chatbot-clear" title="채팅 내역 지우기">🗑️</button>
           <button class="chatbot-close">×</button>
         </div>
@@ -103,7 +104,7 @@ function toggleChatbot() {
           display: flex !important;
           gap: 8px !important;
         }
-        .chatbot-close, .chatbot-clear {
+        .chatbot-close, .chatbot-clear, .chatbot-warning {
           background: none !important;
           border: none !important;
           color: white !important;
@@ -112,7 +113,7 @@ function toggleChatbot() {
           padding: 4px !important;
           border-radius: 4px !important;
         }
-        .chatbot-close:hover, .chatbot-clear:hover {
+        .chatbot-close:hover, .chatbot-clear:hover, .chatbot-warning:hover {
           background: rgba(255,255,255,0.2) !important;
         }
         .chatbot-messages {
@@ -178,6 +179,14 @@ function toggleChatbot() {
       clearChatHistory();
     };
     
+    const warningBtn = chatbot.querySelector('.chatbot-warning');
+    
+    // 클릭 이벤트로 변경
+    warningBtn.onclick = (e) => {
+      e.stopPropagation();
+      toggleCloudTrailPopup();
+    };
+    
     chatbot.querySelector('#chatbot-send').onclick = () => {
       const input = chatbot.querySelector('#chatbot-input');
       if (input.value.trim()) {
@@ -218,7 +227,7 @@ function makeChatbotDraggable(chatbot) {
   
   header.onmousedown = (e) => {
     // 버튼 클릭 시 드래그 방지
-    if (e.target.classList.contains('chatbot-close') || e.target.classList.contains('chatbot-clear')) return;
+    if (e.target.classList.contains('chatbot-close') || e.target.classList.contains('chatbot-clear') || e.target.classList.contains('chatbot-warning')) return;
     
     isDragging = true;
     startX = e.clientX;
@@ -393,6 +402,158 @@ function openProfileWindow() {
   
   closeBtn.onclick = () => profileWindow.remove();
 }
+
+let cloudTrailPopup = null;
+
+/**
+ * CloudTrail 팝업 토글
+ */
+function toggleCloudTrailPopup() {
+  if (cloudTrailPopup) {
+    hideCloudTrailPopup();
+    return;
+  }
+  
+  showCloudTrailPopup();
+}
+
+/**
+ * CloudTrail 오류 팝업 표시
+ */
+function showCloudTrailPopup() {
+  const chatbot = document.getElementById('aws-security-chatbot');
+  if (!chatbot) return;
+  
+  // 팝업 생성
+  cloudTrailPopup = document.createElement('div');
+  cloudTrailPopup.id = 'cloudtrail-popup';
+  cloudTrailPopup.innerHTML = `
+    <div style="background: #f8f9fa; padding: 8px 12px; border-bottom: 1px solid #eee; font-weight: bold; display: flex; justify-content: space-between; align-items: center;">
+      <span>⏳ CloudTrail 오류 로딩 중...</span>
+      <button onclick="hideCloudTrailPopup()" style="background: none; border: none; color: #666; font-size: 16px; cursor: pointer; padding: 0;">×</button>
+    </div>
+  `;
+  
+  // 스타일 적용
+  cloudTrailPopup.style.cssText = `
+    position: fixed !important;
+    background: white !important;
+    border: 1px solid #ddd !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+    z-index: 100001 !important;
+    width: 350px !important;
+    max-height: 300px !important;
+    overflow-y: auto !important;
+    font-family: Arial, sans-serif !important;
+    font-size: 12px !important;
+  `;
+  
+  // 채팅창 상단에 위치 설정
+  const chatbotRect = chatbot.getBoundingClientRect();
+  cloudTrailPopup.style.left = chatbotRect.left + 'px';
+  cloudTrailPopup.style.bottom = (window.innerHeight - chatbotRect.top + 10) + 'px';
+  
+  document.body.appendChild(cloudTrailPopup);
+  
+  // API 호출
+  console.log('CloudTrail API 호출 시작');
+  
+  chrome.runtime.sendMessage({
+    action: 'fetchCloudTrailFailures'
+  }, (response) => {
+    console.log('CloudTrail API 응답:', response);
+    
+    if (!cloudTrailPopup) {
+      console.log('팝업이 사라졌음');
+      return;
+    }
+    
+    if (chrome.runtime.lastError) {
+      console.error('Chrome runtime 오류:', chrome.runtime.lastError);
+      cloudTrailPopup.innerHTML = `
+        <div style="background: #f8f9fa; padding: 8px 12px; border-bottom: 1px solid #eee; font-weight: bold; display: flex; justify-content: space-between; align-items: center;">
+          <span>❌ 네트워크 오류</span>
+          <button onclick="hideCloudTrailPopup()" style="background: none; border: none; color: #666; font-size: 16px; cursor: pointer; padding: 0;">×</button>
+        </div>
+      `;
+      return;
+    }
+    
+    if (!response) {
+      console.error('응답 없음');
+      cloudTrailPopup.innerHTML = `
+        <div style="background: #f8f9fa; padding: 8px 12px; border-bottom: 1px solid #eee; font-weight: bold; display: flex; justify-content: space-between; align-items: center;">
+          <span>❌ 응답 없음</span>
+          <button onclick="hideCloudTrailPopup()" style="background: none; border: none; color: #666; font-size: 16px; cursor: pointer; padding: 0;">×</button>
+        </div>
+      `;
+      return;
+    }
+    
+    if (!response.success) {
+      console.error('API 실패:', response.error);
+      cloudTrailPopup.innerHTML = `
+        <div style="background: #f8f9fa; padding: 8px 12px; border-bottom: 1px solid #eee; font-weight: bold; display: flex; justify-content: space-between; align-items: center;">
+          <span>❌ ${response.error || 'API 오류'}</span>
+          <button onclick="hideCloudTrailPopup()" style="background: none; border: none; color: #666; font-size: 16px; cursor: pointer; padding: 0;">×</button>
+        </div>
+      `;
+      return;
+    }
+    
+    const data = response.data;
+    console.log('CloudTrail 데이터:', data);
+    
+    if (!data) {
+      cloudTrailPopup.innerHTML = `
+        <div style="background: #f8f9fa; padding: 8px 12px; border-bottom: 1px solid #eee; font-weight: bold; display: flex; justify-content: space-between; align-items: center;">
+          <span>❌ 데이터 없음</span>
+          <button onclick="hideCloudTrailPopup()" style="background: none; border: none; color: #666; font-size: 16px; cursor: pointer; padding: 0;">×</button>
+        </div>
+      `;
+      return;
+    }
+    
+    // 팝업 내용 생성
+    let content = `
+      <div style="background: #f8f9fa; padding: 8px 12px; border-bottom: 1px solid #eee; font-weight: bold; display: flex; justify-content: space-between; align-items: center;">
+        <span>⚠️ CloudTrail 오류 (${data.count || 0}개)</span>
+        <button onclick="hideCloudTrailPopup()" style="background: none; border: none; color: #666; font-size: 16px; cursor: pointer; padding: 0;">×</button>
+      </div>
+    `;
+    
+    if (data.events && data.events.length > 0) {
+      data.events.forEach((event) => {
+        content += `
+          <div style="padding: 8px 12px; border-bottom: 1px solid #f0f0f0;">
+            <div style="font-weight: bold; color: #dc3545; margin-bottom: 4px;">${event.ErrorCode}</div>
+            <div><a href="${event.URL}" target="_blank" style="color: #007dbc; text-decoration: none; font-size: 11px;">클릭하여 상세 보기</a></div>
+          </div>
+        `;
+      });
+    } else {
+      content += '<div style="padding: 12px; text-align: center; color: #28a745;">✅ 오류 없음</div>';
+    }
+    
+    cloudTrailPopup.innerHTML = content;
+    console.log('팝업 내용 업데이트 완료');
+  });
+}
+
+/**
+ * CloudTrail 오류 팝업 숨김
+ */
+function hideCloudTrailPopup() {
+  if (cloudTrailPopup) {
+    console.log('팝업 숨김');
+    cloudTrailPopup.remove();
+    cloudTrailPopup = null;
+  }
+}
+
+// 전역 함수로 등록 (인라인 onclick에서 사용)
+window.hideCloudTrailPopup = hideCloudTrailPopup;
 
 /**
  * 채팅 내역 지우기
