@@ -365,7 +365,8 @@ async function sendToServer(data, retryCount = 0) {
         sendChatMessage('bot', `📥 서버 응답:\n${responseData}`);
       }
     } else {
-      sendChatMessage('bot', '✅ 서버 응답 완료 (응답 데이터 없음)');
+      sendChatMessage('bot', `📥 서버 응답:\n${responseData}`);
+      // sendChatMessage('bot', '✅ 서버 응답 완료 (응답 데이터 없음)');
     }
     
     Logger.info('서버 전송 성공', { 

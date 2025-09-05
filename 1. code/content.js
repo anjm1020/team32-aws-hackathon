@@ -75,6 +75,14 @@ function createChatbot() {
   awsChatbot = document.createElement('div');
   awsChatbot.id = 'aws-security-chatbot';
   awsChatbot.innerHTML = `
+    <div class="chatbot-resize-handle nw-resize"></div>
+    <div class="chatbot-resize-handle n-resize"></div>
+    <div class="chatbot-resize-handle ne-resize"></div>
+    <div class="chatbot-resize-handle e-resize"></div>
+    <div class="chatbot-resize-handle se-resize"></div>
+    <div class="chatbot-resize-handle s-resize"></div>
+    <div class="chatbot-resize-handle sw-resize"></div>
+    <div class="chatbot-resize-handle w-resize"></div>
     <div class="chatbot-header">
       <span>🛡️ AWS Security Assistant</span>
       <div class="chatbot-controls">
@@ -142,6 +150,19 @@ function createChatbot() {
       .chatbot-close:hover, .chatbot-clear:hover, .chatbot-warning:hover {
         background: rgba(255,255,255,0.2) !important;
       }
+      .chatbot-resize-handle {
+        position: absolute !important;
+        background: transparent !important;
+        z-index: 1000 !important;
+      }
+      .nw-resize { top: 0 !important; left: 0 !important; width: 15px !important; height: 15px !important; cursor: nw-resize !important; }
+      .n-resize { top: 0 !important; left: 15px !important; right: 15px !important; height: 5px !important; cursor: n-resize !important; }
+      .ne-resize { top: 0 !important; right: 0 !important; width: 15px !important; height: 15px !important; cursor: ne-resize !important; }
+      .e-resize { top: 15px !important; right: 0 !important; width: 5px !important; bottom: 15px !important; cursor: e-resize !important; }
+      .se-resize { bottom: 0 !important; right: 0 !important; width: 15px !important; height: 15px !important; cursor: se-resize !important; }
+      .s-resize { bottom: 0 !important; left: 15px !important; right: 15px !important; height: 5px !important; cursor: s-resize !important; }
+      .sw-resize { bottom: 0 !important; left: 0 !important; width: 15px !important; height: 15px !important; cursor: sw-resize !important; }
+      .w-resize { top: 15px !important; left: 0 !important; width: 5px !important; bottom: 15px !important; cursor: w-resize !important; }
       .chatbot-messages {
         flex: 1 !important;
         padding: 12px !important;
@@ -248,6 +269,7 @@ function createChatbot() {
   };
   
   makeChatbotDraggable(awsChatbot);
+  makeChatbotResizable(awsChatbot);
 }
 
 /**
@@ -311,13 +333,96 @@ function makeChatbotDraggable(chatbot) {
   };
 }
 
+/**
+ * 챗봇 리사이즈 기능
+ */
+function makeChatbotResizable(chatbot) {
+  const resizeHandles = chatbot.querySelectorAll('.chatbot-resize-handle');
+  let isResizing = false;
+  let resizeType = '';
+  let startX, startY, startWidth, startHeight, startLeft, startTop;
+  
+  const handleMouseMove = (e) => {
+    if (!isResizing) return;
+    
+    const deltaX = e.clientX - startX;
+    const deltaY = e.clientY - startY;
+    
+    let newWidth = startWidth;
+    let newHeight = startHeight;
+    let newLeft = startLeft;
+    let newTop = startTop;
+    
+    // 방향에 따른 리사이즈 로직
+    if (resizeType.includes('w')) { // 왼쪽
+      newWidth = startWidth - deltaX;
+      newLeft = startLeft + deltaX;
+    }
+    if (resizeType.includes('e')) { // 오른쪽
+      newWidth = startWidth + deltaX;
+    }
+    if (resizeType.includes('n')) { // 위쪽
+      newHeight = startHeight - deltaY;
+      newTop = startTop + deltaY;
+    }
+    if (resizeType.includes('s')) { // 아래쪽
+      newHeight = startHeight + deltaY;
+    }
+    
+    // 최소 크기 제한
+    if (newWidth < 300) {
+      newWidth = 300;
+      if (resizeType.includes('w')) {
+        newLeft = startLeft + startWidth - 300;
+      }
+    }
+    if (newHeight < 300) {
+      newHeight = 300;
+      if (resizeType.includes('n')) {
+        newTop = startTop + startHeight - 300;
+      }
+    }
 
-
-
-
-
-
-
+    chatbot.style.width = newWidth + 'px';
+    chatbot.style.height = newHeight + 'px';
+    chatbot.style.left = newLeft + 'px';
+    chatbot.style.top = newTop + 'px';
+  };
+  
+  const handleMouseUp = () => {
+    if (isResizing) {
+      isResizing = false;
+      resizeType = '';
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    }
+  };
+  
+  resizeHandles.forEach(handle => {
+    handle.onmousedown = (e) => {
+      isResizing = true;
+      resizeType = handle.className.split(' ')[1].replace('-resize', '');
+      startX = e.clientX;
+      startY = e.clientY;
+      startWidth = chatbot.offsetWidth;
+      startHeight = chatbot.offsetHeight;
+      
+      const rect = chatbot.getBoundingClientRect();
+      startLeft = rect.left;
+      startTop = rect.top;
+      chatbot.style.right = 'auto';
+      chatbot.style.bottom = 'auto';
+      chatbot.style.left = startLeft + 'px';
+      chatbot.style.top = startTop + 'px';
+      
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      
+      e.preventDefault();
+      e.stopPropagation();
+    };
+  });
+}
 
 /**
  * 서버에서 프로파일 로드
