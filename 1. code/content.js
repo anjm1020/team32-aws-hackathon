@@ -221,32 +221,11 @@ function toggleChatbot() {
  * 챗봇 드래그 기능
  */
 function makeChatbotDraggable(chatbot) {
-  const header = chatbot.querySelector('#chatbot-header');
+  const header = chatbot.querySelector('.chatbot-header');
   let isDragging = false;
   let startX, startY, startLeft, startTop;
   
-  header.onmousedown = (e) => {
-    // 버튼 클릭 시 드래그 방지
-    if (e.target.classList.contains('chatbot-close') || e.target.classList.contains('chatbot-clear') || e.target.classList.contains('chatbot-warning')) return;
-    
-    isDragging = true;
-    startX = e.clientX;
-    startY = e.clientY;
-    
-    const rect = chatbot.getBoundingClientRect();
-    startLeft = rect.left;
-    startTop = rect.top;
-    
-    // 기본 위치 설정 제거
-    chatbot.style.right = 'auto';
-    chatbot.style.bottom = 'auto';
-    chatbot.style.left = startLeft + 'px';
-    chatbot.style.top = startTop + 'px';
-    
-    e.preventDefault();
-  };
-  
-  document.onmousemove = (e) => {
+  const handleMouseMove = (e) => {
     if (!isDragging) return;
     
     const deltaX = e.clientX - startX;
@@ -266,8 +245,36 @@ function makeChatbotDraggable(chatbot) {
     chatbot.style.top = newTop + 'px';
   };
   
-  document.onmouseup = () => {
-    isDragging = false;
+  const handleMouseUp = () => {
+    if (isDragging) {
+      isDragging = false;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    }
+  };
+  
+  header.onmousedown = (e) => {
+    // 버튼 클릭 시 드래그 방지
+    if (e.target.classList.contains('chatbot-close') || e.target.classList.contains('chatbot-clear') || e.target.classList.contains('chatbot-warning')) return;
+    
+    isDragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    
+    const rect = chatbot.getBoundingClientRect();
+    startLeft = rect.left;
+    startTop = rect.top;
+    
+    // 기본 위치 설정 제거
+    chatbot.style.right = 'auto';
+    chatbot.style.bottom = 'auto';
+    chatbot.style.left = startLeft + 'px';
+    chatbot.style.top = startTop + 'px';
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    e.preventDefault();
   };
 }
 
@@ -428,9 +435,9 @@ function showCloudTrailPopup() {
   cloudTrailPopup = document.createElement('div');
   cloudTrailPopup.id = 'cloudtrail-popup';
   cloudTrailPopup.innerHTML = `
-    <div style="background: #f8f9fa; padding: 8px 12px; border-bottom: 1px solid #eee; font-weight: bold; display: flex; justify-content: space-between; align-items: center;">
+    <div class="popup-header" style="background: #f8f9fa; padding: 8px 12px; border-bottom: 1px solid #eee; font-weight: bold; display: flex; justify-content: space-between; align-items: center; cursor: move;">
       <span>⏳ CloudTrail 오류 로딩 중...</span>
-      <button onclick="hideCloudTrailPopup()" style="background: none; border: none; color: #666; font-size: 16px; cursor: pointer; padding: 0;">×</button>
+      <button class="popup-close" style="background: none; border: none; color: #666; font-size: 16px; cursor: pointer; padding: 4px;">×</button>
     </div>
   `;
   
@@ -455,6 +462,16 @@ function showCloudTrailPopup() {
   cloudTrailPopup.style.bottom = (window.innerHeight - chatbotRect.top + 10) + 'px';
   
   document.body.appendChild(cloudTrailPopup);
+  
+  // X 버튼 이벤트 리스너
+  const closeBtn = cloudTrailPopup.querySelector('.popup-close');
+  closeBtn.onclick = (e) => {
+    e.stopPropagation();
+    hideCloudTrailPopup();
+  };
+  
+  // 드래그 기능 추가
+  makePopupDraggable(cloudTrailPopup);
   
   // API 호출
   console.log('CloudTrail API 호출 시작');
@@ -517,9 +534,9 @@ function showCloudTrailPopup() {
     
     // 팝업 내용 생성
     let content = `
-      <div style="background: #f8f9fa; padding: 8px 12px; border-bottom: 1px solid #eee; font-weight: bold; display: flex; justify-content: space-between; align-items: center;">
+      <div class="popup-header" style="background: #f8f9fa; padding: 8px 12px; border-bottom: 1px solid #eee; font-weight: bold; display: flex; justify-content: space-between; align-items: center; cursor: move;">
         <span>⚠️ CloudTrail 오류 (${data.count || 0}개)</span>
-        <button onclick="hideCloudTrailPopup()" style="background: none; border: none; color: #666; font-size: 16px; cursor: pointer; padding: 0;">×</button>
+        <button class="popup-close" style="background: none; border: none; color: #666; font-size: 16px; cursor: pointer; padding: 4px;">×</button>
       </div>
     `;
     
@@ -537,6 +554,17 @@ function showCloudTrailPopup() {
     }
     
     cloudTrailPopup.innerHTML = content;
+    
+    // X 버튼 이벤트 리스너 재등록
+    const closeBtn = cloudTrailPopup.querySelector('.popup-close');
+    closeBtn.onclick = (e) => {
+      e.stopPropagation();
+      hideCloudTrailPopup();
+    };
+    
+    // 드래그 기능 재등록
+    makePopupDraggable(cloudTrailPopup);
+    
     console.log('팝업 내용 업데이트 완료');
   });
 }
@@ -550,6 +578,68 @@ function hideCloudTrailPopup() {
     cloudTrailPopup.remove();
     cloudTrailPopup = null;
   }
+}
+
+/**
+ * 팝업 드래그 기능
+ */
+function makePopupDraggable(popup) {
+  const header = popup.querySelector('.popup-header');
+  if (!header) return;
+  
+  let isDragging = false;
+  let startX, startY, startLeft, startTop;
+  
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    
+    const deltaX = e.clientX - startX;
+    const deltaY = e.clientY - startY;
+    
+    let newLeft = startLeft + deltaX;
+    let newTop = startTop + deltaY;
+    
+    // 화면 범위 내로 제한
+    const maxLeft = window.innerWidth - popup.offsetWidth;
+    const maxTop = window.innerHeight - popup.offsetHeight;
+    
+    newLeft = Math.max(0, Math.min(newLeft, maxLeft));
+    newTop = Math.max(0, Math.min(newTop, maxTop));
+    
+    popup.style.left = newLeft + 'px';
+    popup.style.top = newTop + 'px';
+  };
+  
+  const handleMouseUp = () => {
+    if (isDragging) {
+      isDragging = false;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    }
+  };
+  
+  header.onmousedown = (e) => {
+    // X 버튼 클릭 시 드래그 방지
+    if (e.target.classList.contains('popup-close')) return;
+    
+    isDragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    
+    const rect = popup.getBoundingClientRect();
+    startLeft = rect.left;
+    startTop = rect.top;
+    
+    // 기본 위치 설정 제거
+    popup.style.bottom = 'auto';
+    popup.style.left = startLeft + 'px';
+    popup.style.top = startTop + 'px';
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    e.preventDefault();
+  };
 }
 
 // 전역 함수로 등록 (인라인 onclick에서 사용)
