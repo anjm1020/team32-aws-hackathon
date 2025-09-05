@@ -754,7 +754,7 @@ function clearChatHistory() {
  */
 function addMessage(text, sender) {
   if (!awsChatbot) {
-    createChatbot();
+    return; // 채팅창이 없으면 메시지 추가하지 않음
   }
   
   const messagesContainer = awsChatbot.querySelector('#chatbot-messages');
@@ -886,7 +886,6 @@ async function checkConsentAndInit() {
  */
 function initializeUI() {
   createFloatingButton();
-  showChatbot(); // 처음에 채팅창 표시
 }
 
 /**
@@ -990,10 +989,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // 메시지 추가 (챗봇이 없으면 자동 생성)
     addMessage(request.message, request.sender);
     
-    // 챗봇이 열려있지 않으면 자동으로 열기
-    if (!awsChatbot) {
-      showChatbot();
-    }
+    // 챗봇이 열려있을 때만 메시지 표시
     
     sendResponse({ success: true });
   }
