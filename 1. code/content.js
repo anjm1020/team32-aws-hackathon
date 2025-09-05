@@ -115,10 +115,19 @@ function createChatbot() {
     } catch (e) {}
   }
   
+  // 저장된 위치 복원
+  const savedPosition = localStorage.getItem('aws-chatbot-position');
+  let positionStyle = 'bottom: 90px !important; right: 20px !important;';
+  if (savedPosition) {
+    try {
+      const pos = JSON.parse(savedPosition);
+      positionStyle = `left: ${pos.left}px !important; top: ${pos.top}px !important;`;
+    } catch (e) {}
+  }
+  
   awsChatbot.style.cssText = `
     position: fixed !important;
-    bottom: 90px !important;
-    right: 20px !important;
+    ${positionStyle}
     width: ${width}px !important;
     height: ${height}px !important;
     background: white !important;
@@ -316,6 +325,13 @@ function makeChatbotDraggable(chatbot) {
       isDragging = false;
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      
+      // 위치 저장
+      const rect = chatbot.getBoundingClientRect();
+      localStorage.setItem('aws-chatbot-position', JSON.stringify({
+        left: rect.left,
+        top: rect.top
+      }));
     }
   };
   
