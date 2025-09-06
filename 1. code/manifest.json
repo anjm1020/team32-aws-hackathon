@@ -14,7 +14,7 @@
   "host_permissions": [
     "*://*.amazonaws.com/*",
     "*://*.console.aws.amazon.com/*",
-    "http://54.163.216.139/*"
+    "http://98.86.213.143/*"
   ],
   
   "background": {
