@@ -897,7 +897,7 @@ function showCloudTrailPopup() {
     // 팝업 내용 생성
     let content = `
       <div class="popup-header" style="background: #f8f9fa; padding: 8px 12px; border-bottom: 1px solid #eee; font-weight: bold; display: flex; justify-content: space-between; align-items: center; cursor: move;">
-        <span>⚠️ CloudTrail 오류 (${data.count || 0}개)</span>
+        <span>⚠️ CloudTrail 오류 (${data.count || 0}개) (최대 15분까지 delay 발생 가능)</span>
         <button class="popup-close" style="background: none; border: none; color: #666; font-size: 16px; cursor: pointer; padding: 4px;">×</button>
       </div>
     `;
