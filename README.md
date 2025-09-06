@@ -48,8 +48,7 @@ AWS Console에서의 활동을 실시간으로 모니터링하고 Amazon Q를 �
 - `POST /errors`: 에러 로그 수집
 
 ## 동영상 데모(수정 예정)
-
-[데모 영상 링크 추가 예정]
+![Image](https://github.com/user-attachments/assets/e801d7ee-32e4-4445-95d6-40c793fa5d0b)
 
 ## 리소스 배포하기(Client Side)
 
@@ -78,6 +77,9 @@ aws configure
 
 # main.tf가 있는 dir로 가서 terraform apply
 terraform apply
+
+# Amazon Q 로그인
+q login
 ```
 
 ### 3. 리소스 배포가 완료되면 cloudtrail 추적 활성화(Optional)
