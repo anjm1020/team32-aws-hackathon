@@ -51,47 +51,51 @@ AWS Console에서의 활동을 실시간으로 모니터링하고 Amazon Q를 �
 
 [데모 영상 링크 추가 예정]
 
-## 리소스 배포하기
+## 리소스 배포하기(Client Side)
 
-### 1. 환경 설정(수정 예정)
+### Window/Mac 버전을 구분하여 다운로드 후 Chrome Exension Load
+- Local Directiory에 다운로드
+- Chrome '확장 프로그램 관리'로 들어가서 개발자 모드 활성화
+- '압축 해제된 확장 프로그램 로드' 클릭 후 설치한 파일의 MAC || Windows 파일을 지정
+- 로드 완료 익스텐션 활성화
+
+### 이후 Serverside 배포 후 EC2 IP 및 Port(5000) 입력하여 AWS Console 진입할 것
+
+## 리소스 배포하기(Server Side)
+
+### 1. Main.tf를 Pull/Clone
 ```bash
 # 저장소 클론
-git clone [repository-url]
-cd amazonq-hackathon
-
-# 의존성 설치
-pip install -r requirements.txt
-
-# Amazon Q CLI 설정 (사전 필요)
-q configure
+git clone https://github.com/55002ghals/team32-aws-hackathon.git
+# 메인 디렉토리는 ~/team32-aws-hackathon
 ```
 
-### 2. 애플리케이션 실행(수정 예정)
+### 2. Terraform Apply하여 리소스 배포(이때, AWS Credential은 자신의 것으로 AWS CLI에 부여된 상태여야함)
 ```bash
 
-# 실행 권한 부여
-chmod +x run.sh
+# AWS Credential 확인
+aws configure
 
-# 서버 시작
-bash ./run.sh
+# main.tf가 있는 dir로 가서 terraform apply
+terraform apply
 ```
 
-### 3. 브라우저 확장프로그램 설치
-1. Chrome/Edge 확장프로그램 개발자 모드 활성화
-2. 확장프로그램 로드(해당 git pull/clone한 directory를 Load)
-3. AWS 콘솔 접속하여 확장프로그램 활성화 후 모니터링 시작
+### 3. 리소스 배포가 완료되면 cloudtrail 추적 활성화(Optional)
+- AWS Console로 들어가 작업을 진행할 Console에서의 CloudTrail Trail을 활성화
+- 실행하지 않아도 AmazonQ Based Feedback은 받을 수 있으나, CloudTrail Feedback은 받을 수 없음 
 
-### 4. 설정 확인
-- 서버: `http://[EC2 Public IP]:5000` 로 설정
-- 보안 모드: Radio Box로 On/Off 가능
+### 4. application 실행
+```shell
+bash run.sh
+```
 
 ## 프로젝트 기대 효과 및 예상 사용 사례 (수정 예정)
 
 ### 🎯 기대 효과
-- **보안 사고 예방**: 실시간 위험 탐지로 보안 사고 사전 차단
-- **학습 효과**: AWS 보안 모범 사례 자동 학습
-- **운영 효율성**: 수동 보안 검토 시간 90% 단축
-- **컴플라이언스**: 자동화된 보안 정책 준수 검증
+- **보안 사고 예방**: 실시간 행위 기반 빠른 위험 탐지로 보안 사고 사전 차단
+- **학습 효과**: AWS 모범 사례 혹은 자동 학습 및 클라우드 거부감 저하
+- **운영 효율성**: 수동 보안 검토 시간 단축
+- **컴플라이언스**: AmazonQ를 바탕으로 자동화된 보안 정책 준수 검증을 빠르게 가능
 
 ### 💼 예상 사용 사례
 
