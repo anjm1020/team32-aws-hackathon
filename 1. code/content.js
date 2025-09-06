@@ -39,13 +39,19 @@ if (document.readyState === 'loading') {
 let awsChatbot = null;
 
 /**
- * 챗봇 토글 (CloudTrail 방식)
+ * 챗봇 토글 (각 창별 독립적 처리)
  */
 function toggleChatbot() {
-  if (awsChatbot) {
+  console.log('toggleChatbot 호출됨');
+  const existingChatbot = document.getElementById('aws-security-chatbot');
+  console.log('기존 채팅봇 존재:', !!existingChatbot);
+  
+  if (existingChatbot) {
+    console.log('채팅봇 숨기기');
     hideChatbot();
     return;
   }
+  console.log('채팅봇 표시하기');
   showChatbot();
 }
 
@@ -53,8 +59,15 @@ function toggleChatbot() {
  * 챗봇 표시
  */
 function showChatbot() {
-  if (!awsChatbot) {
+  console.log('showChatbot 호출됨');
+  const existingChatbot = document.getElementById('aws-security-chatbot');
+  console.log('기존 채팅봇 확인:', !!existingChatbot);
+  
+  if (!existingChatbot) {
+    console.log('새 채팅봇 생성');
     createChatbot();
+  } else {
+    console.log('이미 채팅봇이 존재함');
   }
 }
 
@@ -62,8 +75,9 @@ function showChatbot() {
  * 챗봇 숨김
  */
 function hideChatbot() {
-  if (awsChatbot) {
-    awsChatbot.remove();
+  const existingChatbot = document.getElementById('aws-security-chatbot');
+  if (existingChatbot) {
+    existingChatbot.remove();
     awsChatbot = null;
   }
 }
@@ -72,6 +86,16 @@ function hideChatbot() {
  * 챗봇 생성
  */
 function createChatbot() {
+  console.log('createChatbot 호출됨');
+  
+  // 기존 챗봇 제거
+  const existingChatbot = document.getElementById('aws-security-chatbot');
+  if (existingChatbot) {
+    console.log('기존 채팅봇 제거');
+    existingChatbot.remove();
+  }
+  
+  console.log('새 채팅봇 요소 생성');
   awsChatbot = document.createElement('div');
   awsChatbot.id = 'aws-security-chatbot';
   awsChatbot.innerHTML = `
@@ -104,18 +128,32 @@ function createChatbot() {
   // 고정 크기 설정
   const width = 450;
   const height = 500;
+  console.log('채팅봇 크기 설정:', { width, height });
   
-  // 저장된 위치 복원
+  // 저장된 위치 복원 (화면 범위 내로 제한)
   const savedPosition = localStorage.getItem('aws-chatbot-position');
   let positionStyle = 'bottom: 90px !important; right: 20px !important;';
   if (savedPosition) {
     try {
       const pos = JSON.parse(savedPosition);
-      positionStyle = `left: ${pos.left}px !important; top: ${pos.top}px !important;`;
-    } catch (e) {}
+      // 화면 범위 내에 있는지 확인
+      const maxLeft = window.innerWidth - width;
+      const maxTop = window.innerHeight - height;
+      
+      if (pos.left >= 0 && pos.left <= maxLeft && pos.top >= 0 && pos.top <= maxTop) {
+        positionStyle = `left: ${pos.left}px !important; top: ${pos.top}px !important;`;
+        console.log('저장된 위치 사용:', pos);
+      } else {
+        console.log('저장된 위치가 화면 밖에 있음, 기본 위치 사용');
+        localStorage.removeItem('aws-chatbot-position'); // 잘못된 위치 제거
+      }
+    } catch (e) {
+      console.log('위치 데이터 파싱 오류, 기본 위치 사용');
+    }
   }
+  console.log('최종 위치 스타일:', positionStyle);
   
-  awsChatbot.style.cssText = `
+  const finalStyle = `
     position: fixed !important;
     ${positionStyle}
     width: ${width}px !important;
@@ -129,7 +167,12 @@ function createChatbot() {
     display: flex !important;
     flex-direction: column !important;
     overflow: hidden !important;
+    visibility: visible !important;
+    opacity: 1 !important;
   `;
+  
+  console.log('채팅봇 스타일 적용:', finalStyle);
+  awsChatbot.style.cssText = finalStyle;
   
   if (!document.getElementById('chatbot-style')) {
     const style = document.createElement('style');
@@ -254,7 +297,19 @@ function createChatbot() {
     document.head.appendChild(style);
   }
   
+  console.log('DOM에 채팅봇 추가 시도');
   document.body.appendChild(awsChatbot);
+  console.log('DOM에 채팅봇 추가 완료');
+  
+  // DOM 추가 확인
+  setTimeout(() => {
+    const addedChatbot = document.getElementById('aws-security-chatbot');
+    console.log('DOM 추가 확인:', !!addedChatbot);
+    if (addedChatbot) {
+      console.log('채팅봇 스타일:', addedChatbot.style.cssText);
+      console.log('채팅봇 위치:', addedChatbot.getBoundingClientRect());
+    }
+  }, 100);
   
   // 채팅 내역 복원 (알림 포함)
   loadChatHistory();
@@ -289,7 +344,7 @@ function createChatbot() {
       addMessage('🤖 생각하는 중...', 'bot', loadingId);
       
       // /prompt로 POST 요청 전송
-      chrome.runtime.sendMessage({
+      safeRuntimeSendMessage({
         action: 'sendPrompt',
         query: query,
         loadingId: loadingId
@@ -315,7 +370,7 @@ function createChatbot() {
   const securityModeCheckbox = awsChatbot.querySelector('#security-mode-checkbox');
   securityModeCheckbox.onchange = function() {
     const isSecurityMode = this.checked;
-    chrome.runtime.sendMessage({
+    safeRuntimeSendMessage({
       action: 'setSecurityMode',
       securityMode: isSecurityMode
     });
@@ -342,7 +397,7 @@ function makeChatbotDraggable(chatbot) {
     let newLeft = startLeft + deltaX;
     let newTop = startTop + deltaY;
     
-    // 화면 범위 내로 제한
+    // 화면 경계 내로 제한
     const maxLeft = window.innerWidth - chatbot.offsetWidth;
     const maxTop = window.innerHeight - chatbot.offsetHeight;
     
@@ -359,11 +414,17 @@ function makeChatbotDraggable(chatbot) {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
       
-      // 위치 저장
+      // 위치 저장 (화면 경계 내 확인 후)
       const rect = chatbot.getBoundingClientRect();
+      const maxLeft = window.innerWidth - rect.width;
+      const maxTop = window.innerHeight - rect.height;
+      
+      const safeLeft = Math.max(0, Math.min(rect.left, maxLeft));
+      const safeTop = Math.max(0, Math.min(rect.top, maxTop));
+      
       localStorage.setItem('aws-chatbot-position', JSON.stringify({
-        left: rect.left,
-        top: rect.top
+        left: safeLeft,
+        top: safeTop
       }));
     }
   };
@@ -512,6 +573,44 @@ function makeChatbotResizable(chatbot) {
 }
 
 /**
+ * Chrome Extension 컨텍스트 유효성 검사
+ */
+function isExtensionContextValid() {
+  try {
+    return !!(chrome && chrome.runtime && chrome.runtime.id);
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * 안전한 Chrome API 호출
+ */
+function safeRuntimeSendMessage(message, callback) {
+  if (!isExtensionContextValid()) {
+    console.warn('확장 프로그램 컨텍스트가 무효화됨');
+    if (callback) callback({ success: false, error: '확장 프로그램 컨텍스트 무효화' });
+    return false;
+  }
+  
+  try {
+    chrome.runtime.sendMessage(message, (response) => {
+      if (chrome.runtime.lastError) {
+        console.warn('Chrome runtime 오류:', chrome.runtime.lastError.message);
+        if (callback) callback({ success: false, error: chrome.runtime.lastError.message });
+        return;
+      }
+      if (callback) callback(response);
+    });
+    return true;
+  } catch (error) {
+    console.error('sendMessage 예외:', error);
+    if (callback) callback({ success: false, error: error.message });
+    return false;
+  }
+}
+
+/**
  * 서버에서 프로파일 로드
  */
 function loadProfileFromServer(textarea) {
@@ -520,22 +619,18 @@ function loadProfileFromServer(textarea) {
     return;
   }
   
-  chrome.runtime.sendMessage({
+  safeRuntimeSendMessage({
     action: 'fetchProfile'
   }, (response) => {
-    if (chrome.runtime.lastError) {
-      textarea.placeholder = '네트워크 오류';
+    if (!response || !response.success) {
+      textarea.placeholder = response?.error || '네트워크 오류';
       return;
     }
     
-    if (response && response.success) {
-      if (response.data && response.data.trim()) {
-        textarea.value = response.data.trim();
-      } else {
-        textarea.placeholder = 'profile 입력';
-      }
+    if (response.data && response.data.trim()) {
+      textarea.value = response.data.trim();
     } else {
-      textarea.placeholder = '네트워크 오류';
+      textarea.placeholder = 'profile 입력';
     }
   });
 }
@@ -641,23 +736,19 @@ function openProfileWindow() {
         return;
       }
       
-      chrome.runtime.sendMessage({
+      safeRuntimeSendMessage({
         action: 'sendProfile',
         profile: profile
       }, (response) => {
-        if (chrome.runtime.lastError) {
-          addMessage('❌ 전송 실패: ' + chrome.runtime.lastError.message, 'bot');
+        if (!response || !response.success) {
+          addMessage(`❌ 프로파일 전송 실패: ${response?.error || '알 수 없는 오류'}`, 'bot');
           return;
         }
         
-        if (response && response.success) {
-          if (response.data && response.data.trim()) {
-            addMessage(`${response.data}`, 'bot');
-          }
-          loadProfileFromServer(textarea);
-        } else {
-          addMessage(`❌ 프로파일 전송 실패: ${response?.error || '알 수 없는 오류'}`, 'bot');
+        if (response.data && response.data.trim()) {
+          addMessage(`${response.data}`, 'bot');
         }
+        loadProfileFromServer(textarea);
       });
       
       textarea.classList.remove('editing');
@@ -747,7 +838,7 @@ function showCloudTrailPopup() {
   // API 호출
   console.log('CloudTrail API 호출 시작');
   
-  chrome.runtime.sendMessage({
+  safeRuntimeSendMessage({
     action: 'fetchCloudTrailFailures'
   }, (response) => {
     console.log('CloudTrail API 응답:', response);
@@ -914,13 +1005,29 @@ function makePopupDraggable(popup) {
 }
 
 function saveUnreadNotification(message, backgroundColor = null) {
-  chrome.storage.local.get(['aws-unread-notifications'], (result) => {
-    const unread = result['aws-unread-notifications'] || [];
-    unread.push({ message, backgroundColor, timestamp: Date.now() });
-    chrome.storage.local.set({ 'aws-unread-notifications': unread }, () => {
-      updateNotificationBadge();
+  if (!isExtensionContextValid()) {
+    console.warn('확장 프로그램 컨텍스트 무효화 - 알림 저장 스킵');
+    return;
+  }
+  
+  try {
+    chrome.storage.local.get(['aws-unread-notifications'], (result) => {
+      if (chrome.runtime.lastError) {
+        console.warn('알림 로드 오류:', chrome.runtime.lastError.message);
+        return;
+      }
+      
+      const unread = result['aws-unread-notifications'] || [];
+      unread.push({ message, backgroundColor, timestamp: Date.now() });
+      chrome.storage.local.set({ 'aws-unread-notifications': unread }, () => {
+        if (!chrome.runtime.lastError) {
+          updateNotificationBadge();
+        }
+      });
     });
-  });
+  } catch (error) {
+    console.error('알림 저장 예외:', error);
+  }
 }
 
 function updateNotificationBadge() {
@@ -1186,8 +1293,15 @@ function createFloatingButton() {
   buttonContainer.appendChild(button);
   buttonContainer.appendChild(badge);
     
-  button.onclick = function() {
-    toggleChatbot();
+  button.onclick = function(e) {
+    console.log('플로팅 버튼 클릭됨');
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      toggleChatbot();
+    } catch (error) {
+      console.error('toggleChatbot 오류:', error);
+    }
   };
     
   document.body.appendChild(buttonContainer);

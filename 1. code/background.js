@@ -37,15 +37,15 @@ class Logger {
     if (!data) return {};
     if (typeof data === 'string') return { message: data };
     if (data instanceof Error) return { 
-      error: data.message, 
+      error: data.message || data.toString(), 
       stack: data.stack,
-      name: data.name 
+      name: data.name || 'Error'
     };
     if (typeof data === 'object') {
       try {
         // 순환 참조 방지를 위한 안전한 직렬화
         const seen = new WeakSet();
-        return JSON.parse(JSON.stringify(data, (key, val) => {
+        const result = JSON.parse(JSON.stringify(data, (key, val) => {
           if (val != null && typeof val === 'object') {
             if (seen.has(val)) return '[Circular]';
             seen.add(val);
@@ -53,13 +53,20 @@ class Logger {
           // Error 객체 특별 처리
           if (val instanceof Error) {
             return {
-              message: val.message,
-              name: val.name,
+              message: val.message || val.toString(),
+              name: val.name || 'Error',
               stack: val.stack
             };
           }
           return val;
         }));
+        
+        // 빈 객체이거나 의미있는 정보가 없으면 문자열로 변환
+        if (Object.keys(result).length === 0 || 
+            (result.error === undefined && result.message === undefined)) {
+          return { message: String(data) };
+        }
+        return result;
       } catch (e) {
         return { error: String(data), parseError: e.message };
       }
@@ -197,6 +204,12 @@ const batchProcessor = new BatchProcessor();
 async function loadConfig() {
   try {
     Logger.info('설정 로드 시작');
+    
+    // Chrome Storage API 안전성 검사
+    if (!chrome.storage || !chrome.storage.sync) {
+      throw new Error('Chrome Storage API를 사용할 수 없습니다');
+    }
+    
     const result = await chrome.storage.sync.get(['ec2Url', 'enableBuffer']);
     
     Logger.info('스토리지에서 로드된 데이터', {
@@ -222,12 +235,23 @@ async function loadConfig() {
         new URL(CONFIG.EC2_URL);
         Logger.info('EC2 URL 유효성 검사 통과');
       } catch (urlError) {
-        Logger.warn('EC2 URL 형식 오류', { url: CONFIG.EC2_URL, error: urlError.message });
+        Logger.warn('EC2 URL 형식 오류', { 
+          url: CONFIG.EC2_URL, 
+          error: urlError.message || urlError.toString() 
+        });
       }
     }
     
   } catch (error) {
-    Logger.error('설정 로드 실패', { error: error.message, stack: error.stack });
+    const errorMsg = error.message || error.toString() || '알 수 없는 오류';
+    const errorStack = error.stack || 'Stack trace 없음';
+    
+    Logger.error('설정 로드 실패', { 
+      errorMessage: errorMsg,
+      errorStack: errorStack,
+      errorName: error.name || 'Error',
+      chromeStorageAvailable: !!(chrome.storage && chrome.storage.sync)
+    });
     configLoaded = true; // 실패해도 로드 완료로 표시
   }
 }
