@@ -421,13 +421,15 @@ function makeChatbotDraggable(chatbot) {
 }
 
 /**
- * 챗봇 리사이즈 기능
+ * 챗봇 리사이즈 기능 (8방향 자연스러운 리사이징)
  */
 function makeChatbotResizable(chatbot) {
   const resizeHandles = chatbot.querySelectorAll('.chatbot-resize-handle');
   let isResizing = false;
   let resizeType = '';
   let startX, startY, startWidth, startHeight, startLeft, startTop;
+  const minWidth = 300;
+  const minHeight = 300;
   
   const handleMouseMove = (e) => {
     if (!isResizing) return;
@@ -440,46 +442,46 @@ function makeChatbotResizable(chatbot) {
     let newLeft = startLeft;
     let newTop = startTop;
     
-    // 방향에 따른 리사이즈 로직
-    if (resizeType.includes('w')) { // 왼쪽
-      newWidth = startWidth - deltaX;
-      newLeft = startLeft + deltaX;
+    // 8방향 리사이즈 로직
+    if (resizeType.includes('e')) { // 동쪽 (오른쪽)
+      newWidth = Math.max(minWidth, startWidth + deltaX);
     }
-    if (resizeType.includes('e')) { // 오른쪽
-      newWidth = startWidth + deltaX;
+    if (resizeType.includes('w')) { // 서쪽 (왼쪽)
+      const proposedWidth = startWidth - deltaX;
+      if (proposedWidth >= minWidth) {
+        newWidth = proposedWidth;
+        newLeft = startLeft + deltaX;
+      } else {
+        newWidth = minWidth;
+        newLeft = startLeft + startWidth - minWidth;
+      }
     }
-    if (resizeType.includes('n')) { // 위쪽
-      newHeight = startHeight - deltaY;
-      newTop = startTop + deltaY;
+    if (resizeType.includes('s')) { // 남쪽 (아래쪽)
+      newHeight = Math.max(minHeight, startHeight + deltaY);
     }
-    if (resizeType.includes('s')) { // 아래쪽
-      newHeight = startHeight + deltaY;
+    if (resizeType.includes('n')) { // 북쪽 (위쪽)
+      const proposedHeight = startHeight - deltaY;
+      if (proposedHeight >= minHeight) {
+        newHeight = proposedHeight;
+        newTop = startTop + deltaY;
+      } else {
+        newHeight = minHeight;
+        newTop = startTop + startHeight - minHeight;
+      }
     }
     
-    // 최소 크기 제한
-    if (newWidth < 300) {
-      newWidth = 300;
-      if (resizeType.includes('w')) {
-        newLeft = startLeft + startWidth - 300;
-      }
-    }
-    if (newHeight < 300) {
-      newHeight = 300;
-      if (resizeType.includes('n')) {
-        newTop = startTop + startHeight - 300;
-      }
-    }
-
+    // 화면 경계 제한
+    const maxLeft = window.innerWidth - newWidth;
+    const maxTop = window.innerHeight - newHeight;
+    
+    newLeft = Math.max(0, Math.min(newLeft, maxLeft));
+    newTop = Math.max(0, Math.min(newTop, maxTop));
+    
+    // 스타일 적용
     chatbot.style.width = newWidth + 'px';
     chatbot.style.height = newHeight + 'px';
     chatbot.style.left = newLeft + 'px';
     chatbot.style.top = newTop + 'px';
-    
-    // 크기 저장
-    localStorage.setItem('aws-chatbot-size', JSON.stringify({
-      width: newWidth,
-      height: newHeight
-    }));
   };
   
   const handleMouseUp = () => {
@@ -488,6 +490,19 @@ function makeChatbotResizable(chatbot) {
       resizeType = '';
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      
+      // 크기와 위치 저장
+      const rect = chatbot.getBoundingClientRect();
+      localStorage.setItem('aws-chatbot-size', JSON.stringify({
+        width: rect.width,
+        height: rect.height
+      }));
+      localStorage.setItem('aws-chatbot-position', JSON.stringify({
+        left: rect.left,
+        top: rect.top
+      }));
     }
   };
   
@@ -503,10 +518,16 @@ function makeChatbotResizable(chatbot) {
       const rect = chatbot.getBoundingClientRect();
       startLeft = rect.left;
       startTop = rect.top;
+      
+      // 절대 위치로 변경
       chatbot.style.right = 'auto';
       chatbot.style.bottom = 'auto';
       chatbot.style.left = startLeft + 'px';
       chatbot.style.top = startTop + 'px';
+      
+      // 텍스트 선택 방지 및 커서 설정
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = handle.style.cursor;
       
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
@@ -521,6 +542,11 @@ function makeChatbotResizable(chatbot) {
  * 서버에서 프로파일 로드
  */
 function loadProfileFromServer(textarea) {
+  if (!textarea) {
+    console.error('textarea 요소가 없음');
+    return;
+  }
+  
   chrome.runtime.sendMessage({
     action: 'fetchProfile'
   }, (response) => {
@@ -567,94 +593,120 @@ function openProfileWindow() {
   `;
   
   const style = document.createElement('style');
+  style.id = 'profile-window-style';
   style.textContent = `
     .profile-overlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.7); z-index: 999999;
-      display: flex; align-items: center; justify-content: center;
+      position: fixed !important; top: 0 !important; left: 0 !important; 
+      width: 100% !important; height: 100% !important;
+      background: rgba(0,0,0,0.7) !important; z-index: 999999 !important;
+      display: flex !important; align-items: center !important; justify-content: center !important;
     }
     .profile-container {
-      background: white; padding: 32px; border-radius: 12px;
-      width: 450px; max-width: 90vw; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-      min-width: 300px; position: relative;
+      background: white !important; padding: 32px !important; border-radius: 12px !important;
+      width: 450px !important; max-width: 90vw !important; box-shadow: 0 8px 32px rgba(0,0,0,0.2) !important;
+      min-width: 300px !important; position: relative !important;
     }
-
     .profile-container h3 {
-      margin: 0 0 20px 0; color: #333; font-size: 18px;
+      margin: 0 0 20px 0 !important; color: #333 !important; font-size: 18px !important;
     }
     #profile-text {
-      width: calc(100% - 24px); height: 120px; padding: 12px;
-      border: 2px solid #e0e0e0; border-radius: 8px;
-      background: #f8f9fa; resize: none; font-family: 'Segoe UI', sans-serif;
-      font-size: 14px; line-height: 1.4; transition: all 0.2s ease; box-sizing: border-box;
+      width: calc(100% - 24px) !important; height: 120px !important; padding: 12px !important;
+      border: 2px solid #e0e0e0 !important; border-radius: 8px !important;
+      background: #f8f9fa !important; resize: none !important; font-family: 'Segoe UI', sans-serif !important;
+      font-size: 14px !important; line-height: 1.4 !important; transition: all 0.2s ease !important; 
+      box-sizing: border-box !important;
     }
     #profile-text.editing { 
-      background: white; border-color: #6f42c1; box-shadow: 0 0 0 3px rgba(111,66,193,0.1);
+      background: white !important; border-color: #6f42c1 !important; 
+      box-shadow: 0 0 0 3px rgba(111,66,193,0.1) !important;
     }
     .profile-buttons {
-      display: flex; gap: 12px; margin-top: 20px; justify-content: flex-end;
-      width: 100%; box-sizing: border-box;
+      display: flex !important; gap: 12px !important; margin-top: 20px !important; 
+      justify-content: flex-end !important; width: 100% !important; box-sizing: border-box !important;
     }
     .profile-buttons button {
-      padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer;
-      font-weight: 500; transition: all 0.2s ease;
+      padding: 10px 20px !important; border: none !important; border-radius: 6px !important; 
+      cursor: pointer !important; font-weight: 500 !important; transition: all 0.2s ease !important;
     }
-    #profile-edit { background: #007dbc; color: white; }
-    #profile-edit:hover { background: #0056b3; }
-    #profile-submit { background: #28a745; color: white; }
-    #profile-submit:hover { background: #1e7e34; }
-    #profile-close { background: #dc3545; color: white; }
-    #profile-close:hover { background: #c82333; }
+    #profile-edit { background: #007dbc !important; color: white !important; }
+    #profile-edit:hover { background: #0056b3 !important; }
+    #profile-submit { background: #28a745 !important; color: white !important; }
+    #profile-submit:hover { background: #1e7e34 !important; }
+    #profile-close { background: #dc3545 !important; color: white !important; }
+    #profile-close:hover { background: #c82333 !important; }
   `;
   
   document.head.appendChild(style);
   document.body.appendChild(profileWindow);
   
-  const textarea = profileWindow.querySelector('#profile-text');
-  const editBtn = profileWindow.querySelector('#profile-edit');
-  const submitBtn = profileWindow.querySelector('#profile-submit');
-  const closeBtn = profileWindow.querySelector('#profile-close');
-  
-  // 서버에서 프로파일 로드
-  loadProfileFromServer(textarea);
-  
-  editBtn.onclick = () => {
-    textarea.classList.add('editing');
-    textarea.readOnly = false;
-    textarea.focus();
-  };
-  
-  submitBtn.onclick = () => {
-    const profile = textarea.value.trim();
-    if (!profile) {
-      addMessage('❌ 프로파일을 입력해주세요', 'bot');
+  // DOM에 추가된 후 요소들 찾기
+  setTimeout(() => {
+    const textarea = document.getElementById('profile-text');
+    const editBtn = document.getElementById('profile-edit');
+    const submitBtn = document.getElementById('profile-submit');
+    const closeBtn = document.getElementById('profile-close');
+    
+    if (!textarea || !editBtn || !submitBtn || !closeBtn) {
+      console.error('프로파일 창 요소를 찾을 수 없음');
       return;
     }
     
-    chrome.runtime.sendMessage({
-      action: 'sendProfile',
-      profile: profile
-    }, (response) => {
-      if (chrome.runtime.lastError) {
-        addMessage('❌ 전송 실패: ' + chrome.runtime.lastError.message, 'bot');
+    // 서버에서 프로파일 로드
+    loadProfileFromServer(textarea);
+    
+    // 이벤트 리스너 등록
+    editBtn.addEventListener('click', () => {
+      textarea.classList.add('editing');
+      textarea.readOnly = false;
+      textarea.focus();
+    });
+    
+    submitBtn.addEventListener('click', () => {
+      const profile = textarea.value.trim();
+      if (!profile) {
+        addMessage('❌ 프로파일을 입력해주세요', 'bot');
         return;
       }
       
-      if (response && response.success) {
-        if (response.data && response.data.trim()) {
-          addMessage(`${response.data}`, 'bot');
+      chrome.runtime.sendMessage({
+        action: 'sendProfile',
+        profile: profile
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          addMessage('❌ 전송 실패: ' + chrome.runtime.lastError.message, 'bot');
+          return;
         }
-        loadProfileFromServer(textarea);
-      } else {
-        addMessage(`❌ 프로파일 전송 실패: ${response?.error || '알 수 없는 오류'}`, 'bot');
-      }
+        
+        if (response && response.success) {
+          if (response.data && response.data.trim()) {
+            addMessage(`${response.data}`, 'bot');
+          }
+          loadProfileFromServer(textarea);
+        } else {
+          addMessage(`❌ 프로파일 전송 실패: ${response?.error || '알 수 없는 오류'}`, 'bot');
+        }
+      });
+      
+      textarea.classList.remove('editing');
+      textarea.readOnly = true;
     });
     
-    textarea.classList.remove('editing');
-    textarea.readOnly = true;
-  };
-  
-  closeBtn.onclick = () => profileWindow.remove();
+    closeBtn.addEventListener('click', () => {
+      profileWindow.remove();
+      const styleElement = document.getElementById('profile-window-style');
+      if (styleElement) styleElement.remove();
+    });
+    
+    // 오버레이 클릭으로 닫기
+    const overlay = profileWindow.querySelector('.profile-overlay');
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        profileWindow.remove();
+        const styleElement = document.getElementById('profile-window-style');
+        if (styleElement) styleElement.remove();
+      }
+    });
+  }, 100);
 }
 
 let cloudTrailPopup = null;
