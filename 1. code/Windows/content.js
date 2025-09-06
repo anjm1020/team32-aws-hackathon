@@ -1030,24 +1030,7 @@ function saveUnreadNotification(message, backgroundColor = null, borderColor = n
   }
 }
 
-function updateNotificationBadge() {
-  const badge = document.getElementById('notification-badge');
-  if (!badge) return;
-  
-  chrome.storage.local.get(['aws-unread-notifications'], (result) => {
-    const unread = result['aws-unread-notifications'] || [];
-    if (unread.length > 0) {
-      badge.textContent = unread.length > 99 ? '99+' : unread.length;
-      badge.style.display = 'flex';
-    } else {
-      badge.style.display = 'none';
-    }
-  });
-}
 
-function clearNotificationBadge() {
-  updateNotificationBadge();
-}
 
 // loadUnreadNotifications 기능은 loadChatHistory에 통합됨
 
@@ -1309,27 +1292,7 @@ function createFloatingButton() {
     position: relative !important;
   `;
   
-  const badge = document.createElement('div');
-  badge.id = 'notification-badge';
-  badge.style.cssText = `
-    position: absolute !important;
-    top: -5px !important;
-    right: -5px !important;
-    background: #ffc107 !important;
-    color: #000 !important;
-    border-radius: 50% !important;
-    width: 20px !important;
-    height: 20px !important;
-    font-size: 10px !important;
-    font-weight: bold !important;
-    display: none !important;
-    align-items: center !important;
-    justify-content: center !important;
-    border: 2px solid white !important;
-  `;
-  
   buttonContainer.appendChild(button);
-  buttonContainer.appendChild(badge);
     
   button.onclick = function(e) {
     console.log('플로팅 버튼 클릭됨');
@@ -1343,7 +1306,6 @@ function createFloatingButton() {
   };
     
   document.body.appendChild(buttonContainer);
-  updateNotificationBadge();
 }
 
 /**
@@ -1536,20 +1498,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ success: false, error: error.message });
     }
     return true;
-  } else if (request.action === 'updateNotificationBadge') {
-    // 백그라운드에서 배지 업데이트 요청
-    try {
-      const badge = document.getElementById('notification-badge');
-      if (badge && request.count > 0) {
-        badge.textContent = request.count > 99 ? '99+' : request.count;
-        badge.style.display = 'flex';
-      }
-      sendResponse({ success: true });
-    } catch (error) {
-      console.error('배지 업데이트 오류:', error);
-      sendResponse({ success: false, error: error.message });
-    }
-    return true;
+
   } else if (request.action === 'removeLoadingMessage') {
     // 로딩 메시지 제거
     try {

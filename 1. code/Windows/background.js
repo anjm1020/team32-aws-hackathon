@@ -61,14 +61,26 @@ class Logger {
           return val;
         }));
         
-        // 빈 객체이거나 의미있는 정보가 없으면 문자열로 변환
-        if (Object.keys(result).length === 0 || 
-            (result.error === undefined && result.message === undefined)) {
-          return { message: String(data) };
-        }
         return result;
       } catch (e) {
-        return { error: String(data), parseError: e.message };
+        // JSON 직렬화 실패 시 객체의 키-값을 안전하게 추출
+        try {
+          const safeObj = {};
+          for (const [key, value] of Object.entries(data)) {
+            if (typeof value === 'function') {
+              safeObj[key] = '[Function]';
+            } else if (value === null) {
+              safeObj[key] = null;
+            } else if (value === undefined) {
+              safeObj[key] = undefined;
+            } else {
+              safeObj[key] = String(value);
+            }
+          }
+          return safeObj;
+        } catch (e2) {
+          return { error: 'Object serialization failed', originalError: e.message };
+        }
       }
     }
     return { value: String(data) };
@@ -700,19 +712,7 @@ function saveUnreadNotification(message, backgroundColor = null, borderColor = n
     chrome.storage.local.set({ 'aws-unread-notifications': unread }, () => {
       console.log('알림 저장 완료');
       
-      // 모든 탭에 배지 업데이트 요청
-      chrome.tabs.query(
-        { url: ['*://*.console.aws.amazon.com/*', '*://*.amazonaws.com/*'] },
-        (tabs) => {
-          console.log('배지 업데이트를 위한 탭 수:', tabs.length);
-          tabs.forEach(tab => {
-            chrome.tabs.sendMessage(tab.id, {
-              action: 'updateNotificationBadge',
-              count: unread.length
-            }).catch(() => {});
-          });
-        }
-      );
+
     });
   });
 }
