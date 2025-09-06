@@ -97,7 +97,7 @@ function createChatbot() {
     </div>
     <div class="chatbot-messages" id="chatbot-messages">
       <div class="message bot-message">
-👋 안녕하세요! AWS 보안 어시스턴트입니다.<br>
+👋 안녕하세요! AWS Cloud Pilot입니다.<br>
 🔍 AWS Console 작업을 모니터링하고 있습니다.<br>
       </div>
     </div>
@@ -226,6 +226,13 @@ function createChatbot() {
         max-width: 70% !important;
         float: left !important;
       }
+      .bot-message.threat-message {
+        border-left: 4px solid #666 !important;
+        padding-left: 16px !important;
+      }
+      .message.threat-message {
+        background: var(--threat-bg-color) !important;
+      }
       .user-message {
         background: #007dbc !important;
         color: white !important;
@@ -246,7 +253,7 @@ function createChatbot() {
         margin-right: 8px !important;
       }
       #chatbot-profile {
-        background: #28a745 !important;
+        background: #34306ee1 !important;
         color: white !important;
         border: none !important;
         padding: 8px 12px !important;
@@ -255,7 +262,7 @@ function createChatbot() {
         margin-right: 8px !important;
       }
       #chatbot-profile:hover {
-        background: #1e7e34 !important;
+        background: #34306eff !important;
       }
       #chatbot-send {
         background: #007dbc !important;
@@ -881,10 +888,10 @@ function makePopupDraggable(popup) {
   };
 }
 
-function saveUnreadNotification(message) {
+function saveUnreadNotification(message, backgroundColor = null) {
   chrome.storage.local.get(['aws-unread-notifications'], (result) => {
     const unread = result['aws-unread-notifications'] || [];
-    unread.push({ message, timestamp: Date.now() });
+    unread.push({ message, backgroundColor, timestamp: Date.now() });
     chrome.storage.local.set({ 'aws-unread-notifications': unread }, () => {
       updateNotificationBadge();
     });
@@ -924,7 +931,8 @@ function saveChatHistory() {
   if (messagesContainer) {
     const messages = Array.from(messagesContainer.children).map(msg => ({
       className: msg.className,
-      content: msg.innerHTML
+      content: msg.innerHTML,
+      backgroundColor: msg.style.backgroundColor || null
     }));
     localStorage.setItem('aws-chat-history', JSON.stringify(messages));
   }
@@ -945,13 +953,20 @@ function loadChatHistory() {
           const div = document.createElement('div');
           div.className = msg.className;
           div.innerHTML = msg.content;
+          if (msg.backgroundColor) {
+            div.style.setProperty('background-color', msg.backgroundColor, 'important');
+            div.style.setProperty('background', msg.backgroundColor, 'important');
+            if (msg.content.includes('🚨 Threat:')) {
+              div.classList.add('threat-message');
+            }
+          }
           messagesContainer.appendChild(div);
         });
       } catch (e) {
         // 기본 메시지
         messagesContainer.innerHTML = `
 <div class="message bot-message">
-👋 안녕하세요! AWS 보안 어시스턴트입니다.<br>
+👋 안녕하세요! AWS Cloud Pilot입니다.<br>
 🔍 AWS Console 작업을 모니터링하고 있습니다.<br>
 </div>
         `;
@@ -960,7 +975,7 @@ function loadChatHistory() {
       // 기본 메시지
       messagesContainer.innerHTML = `
 <div class="message bot-message">
-👋 안녕하세요! AWS 보안 어시스턴트입니다.<br>
+👋 안녕하세요! AWS Cloud Pilot입니다.<br>
 🔍 AWS Console 작업을 모니터링하고 있습니다.<br>
 </div>
       `;
@@ -975,6 +990,13 @@ function loadChatHistory() {
           const messageDiv = document.createElement('div');
           messageDiv.className = 'message bot-message';
           messageDiv.textContent = notification.message;
+          if (notification.backgroundColor) {
+            messageDiv.style.setProperty('background-color', notification.backgroundColor, 'important');
+            messageDiv.style.setProperty('background', notification.backgroundColor, 'important');
+            if (notification.message.includes('🚨 Threat:')) {
+              messageDiv.classList.add('threat-message');
+            }
+          }
           messagesContainer.appendChild(messageDiv);
         });
         
@@ -1007,13 +1029,13 @@ function clearChatHistory() {
 
 
 
-function addMessage(text, sender, messageId = null) {
+function addMessage(text, sender, messageId = null, backgroundColor = null) {
   console.log('addMessage 호출:', { sender, awsChatbotExists: !!awsChatbot });
   
   if (!awsChatbot) {
     console.log('채팅봇 없음 - 알림 저장');
     if (sender === 'bot') {
-      saveUnreadNotification(text);
+      saveUnreadNotification(text, backgroundColor);
     }
     return;
   }
@@ -1031,6 +1053,13 @@ function addMessage(text, sender, messageId = null) {
   messageDiv.className = `message ${sender}-message`;
   if (messageId) {
     messageDiv.id = messageId;
+  }
+  
+  // Value 메시지인 경우 배경색 적용
+  if (backgroundColor && text.includes('🚨')) {
+    messageDiv.classList.add('value-message');
+    messageDiv.style.setProperty('background-color', backgroundColor, 'important');
+    messageDiv.style.setProperty('background', backgroundColor, 'important');
   }
   
   // 원본 텍스트 그대로 표시 (특별한 포맷팅 제거)
@@ -1306,8 +1335,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
       }
       
-      // 메시지 추가
-      addMessage(request.message, request.sender);
+      // 메시지 추가 (배경색 정보 포함)
+      addMessage(request.message, request.sender, null, request.backgroundColor);
       console.log('응답 전송: success');
       sendResponse({ success: true });
     } catch (error) {

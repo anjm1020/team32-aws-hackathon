@@ -233,11 +233,11 @@ async function loadConfig() {
 }
 
 /**
- * 서버 응답 포맷 변경 및 순서 재배열
+ * 서버 응답을 두 개의 메시지로 분할하여 포맷
  */
 function formatServerResponse(responseText) {
   if (!responseText || typeof responseText !== 'string') {
-    return responseText;
+    return [responseText];
   }
   
   try {
@@ -248,41 +248,65 @@ function formatServerResponse(responseText) {
     const threatMatch = cleanedText.match(/(?:value|threat):\s*([^\n\r]+)/gi);
     const summaryMatch = cleanedText.match(/summary:\s*([^\n\r]+)/gi);
     const recommendMatch = cleanedText.match(/(?:recommand|recommend):\s*([^\n\r]+)/gi);
+    const actionMatch = cleanedText.match(/(?:action):\s*([^\n\r]+)/gi);
     const titleMatch = cleanedText.match(/\[([^\]]+)\]/);
     
     if (!threatMatch && !summaryMatch && !recommendMatch) {
-      return cleanedText;
+      return [cleanedText];
     }
     
-    let formatted = '';
+    // 첫 번째 메시지: Action, Summary, Recommend
+    let firstMessage = '';
     
     // 제목 추가
     if (titleMatch) {
-      formatted += `${titleMatch[0]}\n\n`;
+      firstMessage += `${titleMatch[0]}\n\n`;
     }
     
-    // 1. Threat (맨 위)
-    if (threatMatch) {
-      const threat = threatMatch[0].replace(/(?:value|threat):/gi, 'Threat:');
-      formatted += `🚨 ${threat}\n\n`;
+    // 1. Action
+    if (actionMatch) {
+      const action = actionMatch[0].replace(/(?:action):/gi, 'Action:');
+      firstMessage += `⚙️ ${action}\n\n`;
     }
     
-    // 2. Summary (중간)
+    // 2. Summary
     if (summaryMatch) {
       const summary = summaryMatch[0].replace(/summary:/gi, 'Summary:');
-      formatted += `📋 ${summary}\n\n`;
+      firstMessage += `📋 ${summary}\n\n`;
     }
     
-    // 3. Recommend (맨 아래)
+    // 3. Recommend
     if (recommendMatch) {
       const recommend = recommendMatch[0].replace(/(?:recommand|recommend):/gi, 'Recommend:');
-      formatted += `💡 ${recommend}`;
+      firstMessage += `💡 ${recommend}`;
     }
     
-    return formatted.trim();
+    // 두 번째 메시지: Threat (배경색 포함)
+    let secondMessage = null;
+    if (threatMatch) {
+      const threatText = threatMatch[0].replace(/(?:value):/gi, 'Value:');
+      const threatValue = threatMatch[0].replace(/(?:value):\s*/gi, '').trim();
+      
+      // Threat 값에 따른 배경색 결정
+      let backgroundColor = '#e8f5e8'; // 기본 초록 (문제없음)
+      if (threatValue.includes('인프라에러확실')) {
+        backgroundColor = '#ffe8e8'; // 파스텔 빨강
+      } else if (threatValue.includes('잠재인프라에러')) {
+        backgroundColor = '#fff8e1'; // 파스텔 노랑
+      } else if (threatValue.includes('보안권고')) {
+        backgroundColor = '#e8f0ff'; // 파스텔 파랑
+      }
+      
+      secondMessage = {
+        text: `🚨 ${threatText}`,
+        backgroundColor: backgroundColor
+      };
+    }
+    
+    return [firstMessage.trim(), secondMessage].filter(msg => msg);
   } catch (error) {
     Logger.error('응답 포맷 변경 실패', { error: error.message });
-    return responseText.replace(/^>\s*/, '').trim();
+    return [responseText.replace(/^>\s*/, '').trim()];
   }
 }
 
@@ -431,8 +455,17 @@ async function sendToServer(data, retryCount = 0) {
     
     // 모든 응답을 text로 받아서 포맷 변경 후 표시
     const responseData = await response.text();
-    const formattedResponse = formatServerResponse(responseData);
-    sendChatMessage('bot', formattedResponse);
+    const formattedResponses = formatServerResponse(responseData);
+    
+    // 분할된 메시지들을 순차적으로 전송
+    formattedResponses.forEach((message, index) => {
+      if (typeof message === 'string') {
+        sendChatMessage('bot', message);
+      } else if (message && message.text) {
+        // Threat 메시지는 배경색 정보와 함께 전송
+        sendChatMessage('bot', message.text, message.backgroundColor);
+      }
+    });
 
     Logger.info('서버 전송 성공', { 
       dataSize: jsonData.length, 
@@ -463,7 +496,7 @@ async function sendToServer(data, retryCount = 0) {
 /**
  * 채팅 메시지 전송
  */
-function sendChatMessage(sender, message) {
+function sendChatMessage(sender, message, backgroundColor = null) {
   console.log('sendChatMessage 호출:', { sender, messageLength: message.length });
   
   // 모든 AWS Console 탭에 메시지 전송
@@ -477,7 +510,7 @@ function sendChatMessage(sender, message) {
       if (tabs.length === 0) {
         console.log('탭이 없음 - 알림 저장');
         if (sender === 'bot') {
-          saveUnreadNotification(message);
+          saveUnreadNotification(message, backgroundColor);
         }
         return;
       }
@@ -488,6 +521,7 @@ function sendChatMessage(sender, message) {
           action: 'addChatMessage',
           sender: sender,
           message: message,
+          backgroundColor: backgroundColor,
           timestamp: new Date().toISOString()
         }).then((response) => {
           console.log('메시지 전송 성공:', response);
@@ -502,7 +536,7 @@ function sendChatMessage(sender, message) {
           // 모든 탭 처리 완료 후 체크
           if (completedTabs === tabs.length && !messageDelivered && sender === 'bot') {
             console.log('모든 탭 전송 실패 - 알림 저장');
-            saveUnreadNotification(message);
+            saveUnreadNotification(message, backgroundColor);
           }
         });
       });
@@ -513,12 +547,12 @@ function sendChatMessage(sender, message) {
 /**
  * 읽지 않은 알림 저장 (background에서)
  */
-function saveUnreadNotification(message) {
+function saveUnreadNotification(message, backgroundColor = null) {
   console.log('saveUnreadNotification 호출:', message.substring(0, 50));
   chrome.storage.local.get(['aws-unread-notifications'], (result) => {
     const unread = result['aws-unread-notifications'] || [];
     console.log('기존 알림 수:', unread.length);
-    unread.push({ message, timestamp: Date.now() });
+    unread.push({ message, backgroundColor, timestamp: Date.now() });
     console.log('새 알림 추가 후 수:', unread.length);
     
     chrome.storage.local.set({ 'aws-unread-notifications': unread }, () => {
@@ -808,8 +842,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         
         // 응답 포맷 변경 후 표시
         if (data && data.trim()) {
-          const formattedData = formatServerResponse(data.trim());
-          sendChatMessage('bot', formattedData);
+          const formattedResponses = formatServerResponse(data.trim());
+          
+          // 분할된 메시지들을 순차적으로 전송
+          formattedResponses.forEach((message, index) => {
+            if (typeof message === 'string') {
+              sendChatMessage('bot', message);
+            } else if (message && message.text) {
+              // Threat 메시지는 배경색 정보와 함께 전송
+              sendChatMessage('bot', message.text, message.backgroundColor);
+            }
+          });
         }
         sendResponse({ success: true, data: data });
       })
