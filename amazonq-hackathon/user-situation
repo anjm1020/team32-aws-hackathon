@@ -1,0 +1,1 @@
+나는 ALB에 EC2 2개를 연결한 WebHosting 서비스를 만들고싶은데 이때 SecurityGroup은 ALB와 EC2에 각각 적용해서 서로만 통신할 수 있도록 하고싶어
