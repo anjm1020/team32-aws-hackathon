@@ -91,6 +91,11 @@ q login
 bash run.sh
 ```
 
+### 5. 리소스 정리
+```bash
+terraform destroy
+```
+
 ## 프로젝트 기대 효과 및 예상 사용 사례 (수정 예정)
 
 ### 🎯 기대 효과
