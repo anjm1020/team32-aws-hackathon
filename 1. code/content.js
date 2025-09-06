@@ -75,14 +75,7 @@ function createChatbot() {
   awsChatbot = document.createElement('div');
   awsChatbot.id = 'aws-security-chatbot';
   awsChatbot.innerHTML = `
-    <div class="chatbot-resize-handle nw-resize"></div>
-    <div class="chatbot-resize-handle n-resize"></div>
-    <div class="chatbot-resize-handle ne-resize"></div>
-    <div class="chatbot-resize-handle e-resize"></div>
-    <div class="chatbot-resize-handle se-resize"></div>
-    <div class="chatbot-resize-handle s-resize"></div>
-    <div class="chatbot-resize-handle sw-resize"></div>
-    <div class="chatbot-resize-handle w-resize"></div>
+
     <div class="chatbot-header">
       <span>🛡️ AWS Cloud Pilot</span>
       <div class="chatbot-controls">
@@ -108,16 +101,9 @@ function createChatbot() {
     </div>
   `;
   
-  // 저장된 크기 복원
-  const savedSize = localStorage.getItem('aws-chatbot-size');
-  let width = 350, height = 400;
-  if (savedSize) {
-    try {
-      const size = JSON.parse(savedSize);
-      width = size.width || 350;
-      height = size.height || 400;
-    } catch (e) {}
-  }
+  // 고정 크기 설정
+  const width = 450;
+  const height = 500;
   
   // 저장된 위치 복원
   const savedPosition = localStorage.getItem('aws-chatbot-position');
@@ -191,19 +177,7 @@ function createChatbot() {
       .chatbot-close:hover, .chatbot-clear:hover, .chatbot-warning:hover {
         background: rgba(255,255,255,0.2) !important;
       }
-      .chatbot-resize-handle {
-        position: absolute !important;
-        background: transparent !important;
-        z-index: 700 !important;
-      }
-      .nw-resize { top: 0 !important; left: 0 !important; width: 15px !important; height: 15px !important; cursor: nw-resize !important; }
-      .n-resize { top: 0 !important; left: 15px !important; right: 15px !important; height: 5px !important; cursor: n-resize !important; }
-      .ne-resize { top: 0 !important; right: 0 !important; width: 15px !important; height: 15px !important; cursor: ne-resize !important; }
-      .e-resize { top: 15px !important; right: 0 !important; width: 5px !important; bottom: 15px !important; cursor: e-resize !important; }
-      .se-resize { bottom: 0 !important; right: 0 !important; width: 15px !important; height: 15px !important; cursor: se-resize !important; }
-      .s-resize { bottom: 0 !important; left: 15px !important; right: 15px !important; height: 5px !important; cursor: s-resize !important; }
-      .sw-resize { bottom: 0 !important; left: 0 !important; width: 15px !important; height: 15px !important; cursor: sw-resize !important; }
-      .w-resize { top: 15px !important; left: 0 !important; width: 5px !important; bottom: 15px !important; cursor: w-resize !important; }
+
       .chatbot-messages {
         flex: 1 !important;
         padding: 12px !important;
@@ -349,7 +323,6 @@ function createChatbot() {
   };
   
   makeChatbotDraggable(awsChatbot);
-  makeChatbotResizable(awsChatbot);
 }
 
 /**
