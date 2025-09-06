@@ -305,29 +305,43 @@ function formatServerResponse(responseText) {
       firstMessage += `💡 ${recommend}`;
     }
     
-    // 두 번째 메시지: Threat (배경색 포함)
+    // Threat 값에 따른 배경색과 테두리색 결정 (모든 메시지에 적용)
+    let backgroundColor = '#e8f5e8'; // 기본 초록 (문제없음)
+    let borderColor = '#4caf50'; // 기본 초록 테두리
+    if (threatMatch) {
+      const threatValue = threatMatch[0].replace(/(?:value):\s*/gi, '').trim();
+      if (threatValue.includes('인프라에러확실')) {
+        backgroundColor = '#ffe8e8'; // 파스텔 빨강
+        borderColor = '#f44336'; // 빨강 테두리
+      } else if (threatValue.includes('잠재인프라에러')) {
+        backgroundColor = '#fff8e1'; // 파스텔 노랑
+        borderColor = '#ff9800'; // 주황 테두리
+      } else if (threatValue.includes('보안권고')) {
+        backgroundColor = '#e8f0ff'; // 파스텔 파랑
+        borderColor = '#2196f3'; // 파랑 테두리
+      }
+    }
+    
+    // 첫 번째 메시지: Action, Summary, Recommend (배경색과 테두리색 포함)
+    const firstMessageObj = {
+      text: firstMessage.trim(),
+      backgroundColor: backgroundColor,
+      borderColor: borderColor
+    };
+    
+    // 두 번째 메시지: Threat (동일한 배경색과 테두리색 적용)
     let secondMessage = null;
     if (threatMatch) {
       const threatText = threatMatch[0].replace(/(?:value):/gi, 'Value:');
-      const threatValue = threatMatch[0].replace(/(?:value):\s*/gi, '').trim();
-      
-      // Threat 값에 따른 배경색 결정
-      let backgroundColor = '#e8f5e8'; // 기본 초록 (문제없음)
-      if (threatValue.includes('인프라에러확실')) {
-        backgroundColor = '#ffe8e8'; // 파스텔 빨강
-      } else if (threatValue.includes('잠재인프라에러')) {
-        backgroundColor = '#fff8e1'; // 파스텔 노랑
-      } else if (threatValue.includes('보안권고')) {
-        backgroundColor = '#e8f0ff'; // 파스텔 파랑
-      }
       
       secondMessage = {
         text: `🚨 ${threatText}`,
-        backgroundColor: backgroundColor
+        backgroundColor: backgroundColor,
+        borderColor: borderColor
       };
     }
     
-    return [firstMessage.trim(), secondMessage].filter(msg => msg);
+    return [firstMessageObj, secondMessage].filter(msg => msg);
   } catch (error) {
     Logger.error('응답 포맷 변경 실패', { error: error.message });
     return [responseText.replace(/^>\s*/, '').trim()];
@@ -486,8 +500,8 @@ async function sendToServer(data, retryCount = 0) {
       if (typeof message === 'string') {
         sendChatMessage('bot', message);
       } else if (message && message.text) {
-        // Threat 메시지는 배경색 정보와 함께 전송
-        sendChatMessage('bot', message.text, message.backgroundColor);
+        // 모든 메시지는 배경색과 테두리색 정보와 함께 전송
+        sendChatMessage('bot', message.text, message.backgroundColor, message.borderColor);
       }
     });
 
@@ -520,7 +534,7 @@ async function sendToServer(data, retryCount = 0) {
 /**
  * 채팅 메시지 전송
  */
-function sendChatMessage(sender, message, backgroundColor = null) {
+function sendChatMessage(sender, message, backgroundColor = null, borderColor = null) {
   console.log('sendChatMessage 호출:', { sender, messageLength: message.length });
   
   // 모든 AWS Console 탭에 메시지 전송
@@ -534,7 +548,7 @@ function sendChatMessage(sender, message, backgroundColor = null) {
       if (tabs.length === 0) {
         console.log('탭이 없음 - 알림 저장');
         if (sender === 'bot') {
-          saveUnreadNotification(message, backgroundColor);
+          saveUnreadNotification(message, backgroundColor, borderColor);
         }
         return;
       }
@@ -546,6 +560,7 @@ function sendChatMessage(sender, message, backgroundColor = null) {
           sender: sender,
           message: message,
           backgroundColor: backgroundColor,
+          borderColor: borderColor,
           timestamp: new Date().toISOString()
         }).then((response) => {
           console.log('메시지 전송 성공:', response);
@@ -560,7 +575,7 @@ function sendChatMessage(sender, message, backgroundColor = null) {
           // 모든 탭 처리 완료 후 체크
           if (completedTabs === tabs.length && !messageDelivered && sender === 'bot') {
             console.log('모든 탭 전송 실패 - 알림 저장');
-            saveUnreadNotification(message, backgroundColor);
+            saveUnreadNotification(message, backgroundColor, borderColor);
           }
         });
       });
@@ -571,12 +586,12 @@ function sendChatMessage(sender, message, backgroundColor = null) {
 /**
  * 읽지 않은 알림 저장 (background에서)
  */
-function saveUnreadNotification(message, backgroundColor = null) {
+function saveUnreadNotification(message, backgroundColor = null, borderColor = null) {
   console.log('saveUnreadNotification 호출:', message.substring(0, 50));
   chrome.storage.local.get(['aws-unread-notifications'], (result) => {
     const unread = result['aws-unread-notifications'] || [];
     console.log('기존 알림 수:', unread.length);
-    unread.push({ message, backgroundColor, timestamp: Date.now() });
+    unread.push({ message, backgroundColor, borderColor, timestamp: Date.now() });
     console.log('새 알림 추가 후 수:', unread.length);
     
     chrome.storage.local.set({ 'aws-unread-notifications': unread }, () => {
@@ -873,8 +888,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (typeof message === 'string') {
               sendChatMessage('bot', message);
             } else if (message && message.text) {
-              // Threat 메시지는 배경색 정보와 함께 전송
-              sendChatMessage('bot', message.text, message.backgroundColor);
+              // 모든 메시지는 배경색과 테두리색 정보와 함께 전송
+              sendChatMessage('bot', message.text, message.backgroundColor, message.borderColor);
             }
           });
         }

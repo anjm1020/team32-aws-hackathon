@@ -1004,7 +1004,7 @@ function makePopupDraggable(popup) {
   };
 }
 
-function saveUnreadNotification(message, backgroundColor = null) {
+function saveUnreadNotification(message, backgroundColor = null, borderColor = null) {
   if (!isExtensionContextValid()) {
     console.warn('확장 프로그램 컨텍스트 무효화 - 알림 저장 스킵');
     return;
@@ -1018,7 +1018,7 @@ function saveUnreadNotification(message, backgroundColor = null) {
       }
       
       const unread = result['aws-unread-notifications'] || [];
-      unread.push({ message, backgroundColor, timestamp: Date.now() });
+      unread.push({ message, backgroundColor, borderColor, timestamp: Date.now() });
       chrome.storage.local.set({ 'aws-unread-notifications': unread }, () => {
         if (!chrome.runtime.lastError) {
           updateNotificationBadge();
@@ -1125,9 +1125,10 @@ function loadChatHistory() {
           if (notification.backgroundColor) {
             messageDiv.style.setProperty('background-color', notification.backgroundColor, 'important');
             messageDiv.style.setProperty('background', notification.backgroundColor, 'important');
-            if (notification.message.includes('🚨 Threat:')) {
-              messageDiv.classList.add('threat-message');
-            }
+          }
+          if (notification.borderColor) {
+            messageDiv.style.setProperty('border-left', `4px solid ${notification.borderColor}`, 'important');
+            messageDiv.style.setProperty('padding-left', '16px', 'important');
           }
           messagesContainer.appendChild(messageDiv);
         });
@@ -1161,13 +1162,13 @@ function clearChatHistory() {
 
 
 
-function addMessage(text, sender, messageId = null, backgroundColor = null) {
+function addMessage(text, sender, messageId = null, backgroundColor = null, borderColor = null) {
   console.log('addMessage 호출:', { sender, awsChatbotExists: !!awsChatbot });
   
   if (!awsChatbot) {
     console.log('채팅봇 없음 - 알림 저장');
     if (sender === 'bot') {
-      saveUnreadNotification(text, backgroundColor);
+      saveUnreadNotification(text, backgroundColor, borderColor);
     }
     return;
   }
@@ -1187,11 +1188,15 @@ function addMessage(text, sender, messageId = null, backgroundColor = null) {
     messageDiv.id = messageId;
   }
   
-  // Value 메시지인 경우 배경색 적용
-  if (backgroundColor && text.includes('🚨')) {
-    messageDiv.classList.add('value-message');
+  // 배경색과 테두리색 적용
+  if (backgroundColor) {
     messageDiv.style.setProperty('background-color', backgroundColor, 'important');
     messageDiv.style.setProperty('background', backgroundColor, 'important');
+  }
+  
+  if (borderColor) {
+    messageDiv.style.setProperty('border-left', `4px solid ${borderColor}`, 'important');
+    messageDiv.style.setProperty('padding-left', '16px', 'important');
   }
   
   // 원본 텍스트 그대로 표시 (특별한 포맷팅 제거)
@@ -1474,8 +1479,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
       }
       
-      // 메시지 추가 (배경색 정보 포함)
-      addMessage(request.message, request.sender, null, request.backgroundColor);
+      // 메시지 추가 (배경색과 테두리색 정보 포함)
+      addMessage(request.message, request.sender, null, request.backgroundColor, request.borderColor);
       console.log('응답 전송: success');
       sendResponse({ success: true });
     } catch (error) {
